@@ -17,6 +17,7 @@
 #include <linux/dma-mapping.h>
 #include "ath9k.h"
 #include "ar9003_mac.h"
+#include "dsshaper.h"
 
 #define BITS_PER_BYTE           8
 #define OFDM_PLCP_BITS          22
@@ -1453,7 +1454,7 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 
 	INIT_LIST_HEAD(&bf_q);
 
-	bf = ath_tx_get_tid_subframe(sc, txq, tid, &tid_q);
+	bf = ath_tx_get_tid_subframe(sc, txq, tid, &tid_q);  //data frame
 	if (!bf)
 		return false;
 
@@ -1468,7 +1469,9 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	ath_set_rates(tid->an->vif, tid->an->sta, bf, false);
 	if (aggr)
 		last = ath_tx_form_aggr(sc, txq, tid, &bf_q, bf,
-					tid_q, &aggr_len);
+					tid_q, &aggr_len);//all bf can be a list ,how make it unsettled
+										//link the skb with the bf_q
+										//how agg
 	else
 		ath_tx_form_burst(sc, txq, tid, &bf_q, bf, tid_q);
 
@@ -1480,8 +1483,9 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 		tx_info->flags |= IEEE80211_TX_CTL_CLEAR_PS_FILT;
 	}
 
-	ath_tx_fill_desc(sc, bf, txq, aggr_len);
-	ath_tx_txqaddbuf(sc, txq, &bf_q, false);
+	ath_tx_fill_desc(sc, bf, txq, aggr_len); //unsettled for burst
+	recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
+	//ath_tx_txqaddbuf(sc, txq, &bf_q, false);
 	return true;
 }
 
@@ -2030,15 +2034,15 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 	ath_dbg(common, QUEUE, "qnum: %d, txq depth: %d\n",
 		txq->axq_qnum, txq->axq_depth);
 
-	if (edma && list_empty(&txq->txq_fifo[txq->txq_headidx])) {
+	if (edma && list_empty(&txq->txq_fifo[txq->txq_headidx])) { 
 		list_splice_tail_init(head, &txq->txq_fifo[txq->txq_headidx]);
 		INCR(txq->txq_headidx, ATH_TXFIFO_DEPTH);
 		puttxbuf = true;
 	} else {
-		list_splice_tail_init(head, &txq->axq_q);
+		list_splice_tail_init(head, &txq->axq_q); 
 
 		if (txq->axq_link) {
-			ath9k_hw_set_desc_link(ah, txq->axq_link, bf->bf_daddr);
+			ath9k_hw_set_desc_link(ah, txq->axq_link, bf->bf_daddr); 
 			ath_dbg(common, XMIT, "link[%u] (%p)=%llx (%p)\n",
 				txq->axq_qnum, txq->axq_link,
 				ito64(bf->bf_daddr), bf->bf_desc);
