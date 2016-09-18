@@ -180,7 +180,7 @@ void schedule_packet(struct list_head *p,int len)
 		struct timer_list my_timer;          
         //int packetsize = hdr_cmn::access(p)->size_ * 8 ;
         //double delay = (packetsize - curr_bucket_contents)/peak_;
-        double delay  = 1500.0*8.0*0.000001/11; //unsettled where is length?
+        double delay  = 1500.0*8.0*0.000001/11; //use msec unsettled where is length?
 
 		//Scheduler& s = Scheduler::instance();
 	    //s.schedule(&sh_, p, delay);
@@ -191,14 +191,20 @@ void schedule_packet(struct list_head *p,int len)
 void resume()
 {
 	struct list_head *p;
-	p = (&shape_queue)->next;
+	//p = (&shape_queue)->next;
 	struct list_head *lh;
-	lh = (&shape_queue_msg)->next;
+	//lh = (&shape_queue_msg)->next;
 	struct packet_msg *msg;
-	msg = list_entry(lh,struct packet_msg,list);
+	//msg = list_entry(lh,struct packet_msg,list);
 	
 	if (!list_empty(&shape_queue)){
 			//p = shape_queue.deque();
+	//	struct list_head *p;
+        p = (&shape_queue)->next;
+        //struct list_head *lh;
+        lh = (&shape_queue_msg)->next;
+       // struct packet_msg *msg;
+        msg = list_entry(lh,struct packet_msg,list);
 		list_del(p);
 		list_del(lh);
 	}else{
@@ -227,7 +233,9 @@ void resume()
 		    * quickly sent out
 			*/
 		   //Scheduler& s = Scheduler::instance();
-		   //s.schedule(&sh_, first_p, 0);         
+		   //s.schedule(&sh_, first_p, 0);   
+	struct timer_list my_timer;  
+	timer_module(1,&my_timer);      
     }   
 } 
 
@@ -271,7 +279,7 @@ void update_bucket_contents()
 
 	dsshaper_my.curr_bucket_contents += (int) (added_bits + 0.5);
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
-		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ;
+		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ; //unsettled how to update burst_size
 	dsshaper_my.last_time = current_time ;
 
 
