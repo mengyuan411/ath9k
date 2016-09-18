@@ -324,23 +324,17 @@ enum ath9k_hw_hang_checks {
 	HW_MAC_HANG               = BIT(5),
 };
 
-#define AR_PCIE_PLL_PWRSAVE_CONTROL BIT(0)
-#define AR_PCIE_PLL_PWRSAVE_ON_D3   BIT(1)
-#define AR_PCIE_PLL_PWRSAVE_ON_D0   BIT(2)
-#define AR_PCIE_CDR_PWRSAVE_ON_D3   BIT(3)
-#define AR_PCIE_CDR_PWRSAVE_ON_D0   BIT(4)
-
 struct ath9k_ops_config {
 	int dma_beacon_response_time;
 	int sw_beacon_response_time;
-	bool cwm_ignore_extcca;
+	u32 cwm_ignore_extcca;
 	u32 pcie_waen;
 	u8 analog_shiftreg;
 	u32 ofdm_trig_low;
 	u32 ofdm_trig_high;
 	u32 cck_trig_high;
 	u32 cck_trig_low;
-	bool enable_paprd;
+	u32 enable_paprd;
 	int serialize_regmode;
 	bool rx_intr_mitigation;
 	bool tx_intr_mitigation;
@@ -356,7 +350,7 @@ struct ath9k_ops_config {
 	u32 ant_ctrl_comm2g_switch_enable;
 	bool xatten_margin_cfg;
 	bool alt_mingainidx;
-	u8 pll_pwrsave;
+	bool no_pll_pwrsave;
 	bool tx_gain_buffalo;
 	bool led_active_high;
 };
@@ -674,10 +668,6 @@ struct ath_hw_private_ops {
 
 	/* ANI */
 	void (*ani_cache_ini_regs)(struct ath_hw *ah);
-
-#ifdef CPTCFG_ATH9K_BTCOEX_SUPPORT
-	bool (*is_aic_enabled)(struct ath_hw *ah);
-#endif /* CPTCFG_ATH9K_BTCOEX_SUPPORT */
 };
 
 /**
@@ -930,7 +920,7 @@ struct ath_hw {
 	struct ar5416IniArray iniCckfirJapan2484;
 	struct ar5416IniArray iniModes_9271_ANI_reg;
 	struct ar5416IniArray ini_radio_post_sys2ant;
-	struct ar5416IniArray ini_modes_rxgain_xlna;
+	struct ar5416IniArray ini_modes_rxgain_5g_xlna;
 	struct ar5416IniArray ini_modes_rxgain_bb_core;
 	struct ar5416IniArray ini_modes_rxgain_bb_postamble;
 
@@ -1035,7 +1025,6 @@ u32 ath9k_hw_gpio_get(struct ath_hw *ah, u32 gpio);
 void ath9k_hw_cfg_output(struct ath_hw *ah, u32 gpio,
 			 u32 ah_signal_type);
 void ath9k_hw_set_gpio(struct ath_hw *ah, u32 gpio, u32 val);
-void ath9k_hw_request_gpio(struct ath_hw *ah, u32 gpio, const char *label);
 void ath9k_hw_setantenna(struct ath_hw *ah, u32 antenna);
 
 /* General Operation */
@@ -1131,8 +1120,6 @@ bool ar9003_is_paprd_enabled(struct ath_hw *ah);
 void ar9003_hw_set_chain_masks(struct ath_hw *ah, u8 rx, u8 tx);
 void ar9003_hw_init_rate_txpower(struct ath_hw *ah, u8 *rate_array,
 				 struct ath9k_channel *chan);
-void ar5008_hw_cmn_spur_mitigate(struct ath_hw *ah,
-				 struct ath9k_channel *chan, int bin);
 void ar5008_hw_init_rate_txpower(struct ath_hw *ah, int16_t *rate_array,
 				 struct ath9k_channel *chan, int ht40_delta);
 
@@ -1157,7 +1144,6 @@ void ath9k_hw_set_cts_timeout(struct ath_hw *ah, u32 us);
 void ath9k_hw_setslottime(struct ath_hw *ah, u32 us);
 
 #ifdef CPTCFG_ATH9K_BTCOEX_SUPPORT
-void ar9003_hw_attach_aic_ops(struct ath_hw *ah);
 static inline bool ath9k_hw_btcoex_is_enabled(struct ath_hw *ah)
 {
 	return ah->btcoex_hw.enabled;
@@ -1175,9 +1161,6 @@ ath9k_hw_get_btcoex_scheme(struct ath_hw *ah)
 	return ah->btcoex_hw.scheme;
 }
 #else
-static inline void ar9003_hw_attach_aic_ops(struct ath_hw *ah)
-{
-}
 static inline bool ath9k_hw_btcoex_is_enabled(struct ath_hw *ah)
 {
 	return false;

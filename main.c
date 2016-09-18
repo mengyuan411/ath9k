@@ -744,8 +744,6 @@ static int ath9k_start(struct ieee80211_hw *hw)
 
 	ath9k_ps_restore(sc);
 
-	ath9k_rng_start(sc);
-
 	return 0;
 }
 
@@ -834,8 +832,6 @@ static void ath9k_stop(struct ieee80211_hw *hw)
 	bool prev_idle;
 
 	ath9k_deinit_channel_context(sc);
-
-	ath9k_rng_stop(sc);
 
 	mutex_lock(&sc->mutex);
 
@@ -946,9 +942,6 @@ static void ath9k_vif_iter(struct ath9k_vif_iter_data *iter_data,
 		iter_data->nstations++;
 		if (avp->assoc && !iter_data->primary_sta)
 			iter_data->primary_sta = vif;
-		break;
-	case NL80211_IFTYPE_OCB:
-		iter_data->nocbs++;
 		break;
 	case NL80211_IFTYPE_ADHOC:
 		iter_data->nadhocs++;
@@ -1123,8 +1116,6 @@ void ath9k_calculate_summary_state(struct ath_softc *sc,
 
 		if (iter_data.nmeshes)
 			ah->opmode = NL80211_IFTYPE_MESH_POINT;
-		else if (iter_data.nocbs)
-			ah->opmode = NL80211_IFTYPE_OCB;
 		else if (iter_data.nwds)
 			ah->opmode = NL80211_IFTYPE_AP;
 		else if (iter_data.nadhocs)
@@ -1458,7 +1449,8 @@ static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 }
 
 #define SUPPORTED_FILTERS			\
-	(FIF_ALLMULTI |				\
+	(FIF_PROMISC_IN_BSS |			\
+	FIF_ALLMULTI |				\
 	FIF_CONTROL |				\
 	FIF_PSPOLL |				\
 	FIF_OTHER_BSS |				\
@@ -1473,18 +1465,13 @@ static void ath9k_configure_filter(struct ieee80211_hw *hw,
 				   u64 multicast)
 {
 	struct ath_softc *sc = hw->priv;
-	struct ath_chanctx *ctx;
 	u32 rfilt;
 
 	changed_flags &= SUPPORTED_FILTERS;
 	*total_flags &= SUPPORTED_FILTERS;
 
 	spin_lock_bh(&sc->chan_lock);
-	ath_for_each_chanctx(sc, ctx)
-		ctx->rxfilter = *total_flags;
-#ifdef CPTCFG_ATH9K_CHANNEL_CONTEXT
-	sc->offchannel.chan.rxfilter = *total_flags;
-#endif
+	sc->cur_chan->rxfilter = *total_flags;
 	spin_unlock_bh(&sc->chan_lock);
 
 	ath9k_ps_wakeup(sc);
@@ -1774,8 +1761,7 @@ static void ath9k_bss_info_changed(struct ieee80211_hw *hw,
 		ath9k_calculate_summary_state(sc, avp->chanctx);
 	}
 
-	if ((changed & BSS_CHANGED_IBSS) ||
-	      (changed & BSS_CHANGED_OCB)) {
+	if (changed & BSS_CHANGED_IBSS) {
 		memcpy(common->curbssid, bss_conf->bssid, ETH_ALEN);
 		common->curaid = bss_conf->aid;
 		ath9k_hw_write_associd(sc->sc_ah);
@@ -1869,16 +1855,14 @@ static void ath9k_reset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 static int ath9k_ampdu_action(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
-			      struct ieee80211_ampdu_params *params)
+			      enum ieee80211_ampdu_mlme_action action,
+			      struct ieee80211_sta *sta,
+			      u16 tid, u16 *ssn, u8 buf_size)
 {
 	struct ath_softc *sc = hw->priv;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 	bool flush = false;
 	int ret = 0;
-	struct ieee80211_sta *sta = params->sta;
-	enum ieee80211_ampdu_mlme_action action = params->action;
-	u16 tid = params->tid;
-	u16 *ssn = &params->ssn;
 
 	mutex_lock(&sc->mutex);
 
@@ -2268,7 +2252,7 @@ static void ath9k_cancel_pending_offchannel(struct ath_softc *sc)
 
 		del_timer_sync(&sc->offchannel.timer);
 		if (sc->offchannel.state >= ATH_OFFCHANNEL_ROC_START)
-			ath_roc_complete(sc, ATH_ROC_COMPLETE_ABORT);
+			ath_roc_complete(sc, true);
 	}
 
 	if (test_bit(ATH_OP_SCANNING, &common->op_flags)) {
@@ -2377,7 +2361,7 @@ static int ath9k_cancel_remain_on_channel(struct ieee80211_hw *hw)
 
 	if (sc->offchannel.roc_vif) {
 		if (sc->offchannel.state >= ATH_OFFCHANNEL_ROC_START)
-			ath_roc_complete(sc, ATH_ROC_COMPLETE_CANCEL);
+			ath_roc_complete(sc, true);
 	}
 
 	mutex_unlock(&sc->mutex);

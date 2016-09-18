@@ -20,7 +20,6 @@
 #include <linux/time.h>
 #include <linux/bitops.h>
 #include <linux/etherdevice.h>
-#include <linux/gpio.h>
 #include <asm/unaligned.h>
 
 #include "hw.h"
@@ -398,16 +397,13 @@ static void ath9k_hw_init_config(struct ath_hw *ah)
 
 	ah->config.dma_beacon_response_time = 1;
 	ah->config.sw_beacon_response_time = 6;
-	ah->config.cwm_ignore_extcca = false;
+	ah->config.cwm_ignore_extcca = 0;
 	ah->config.analog_shiftreg = 1;
 
 	ah->config.rx_intr_mitigation = true;
 
 	ah->config.rimt_last = 250;
 	ah->config.rimt_first = 500;
-
-	if (AR_SREV_9462(ah) || AR_SREV_9565(ah))
-		ah->config.pll_pwrsave = 7;
 
 	/*
 	 * We need this for PCI devices only (Cardbus, PCI, miniPCI)
@@ -1250,7 +1246,6 @@ static void ath9k_hw_set_operating_mode(struct ath_hw *ah, int opmode)
 			break;
 		}
 		/* fall through */
-	case NL80211_IFTYPE_OCB:
 	case NL80211_IFTYPE_MESH_POINT:
 	case NL80211_IFTYPE_AP:
 		set |= AR_STA_ID1_STA_AP;
@@ -1376,16 +1371,6 @@ static bool ath9k_hw_set_reset(struct ath_hw *ah, int type)
 
 	if (ath9k_hw_mci_is_enabled(ah))
 		ar9003_mci_check_gpm_offset(ah);
-
-	/* DMA HALT added to resolve ar9300 and ar9580 bus error during
-	 * RTC_RC reg read
-	 */
-	if (AR_SREV_9300(ah) || AR_SREV_9580(ah)) {
-		REG_SET_BIT(ah, AR_CFG, AR_CFG_HALT_REQ);
-		ath9k_hw_wait(ah, AR_CFG, AR_CFG_HALT_ACK, AR_CFG_HALT_ACK,
-			      20 * AH_WAIT_TIMEOUT);
-		REG_CLR_BIT(ah, AR_CFG, AR_CFG_HALT_REQ);
-	}
 
 	REG_WRITE(ah, AR_RTC_RC, rst_flags);
 
@@ -2348,10 +2333,10 @@ void ath9k_hw_set_sta_beacon_timers(struct ath_hw *ah,
 	else
 		nextTbtt = bs->bs_nexttbtt;
 
-	ath_dbg(common, BEACON, "next DTIM %u\n", bs->bs_nextdtim);
-	ath_dbg(common, BEACON, "next beacon %u\n", nextTbtt);
-	ath_dbg(common, BEACON, "beacon period %u\n", beaconintval);
-	ath_dbg(common, BEACON, "DTIM period %u\n", dtimperiod);
+	ath_dbg(common, BEACON, "next DTIM %d\n", bs->bs_nextdtim);
+	ath_dbg(common, BEACON, "next beacon %d\n", nextTbtt);
+	ath_dbg(common, BEACON, "beacon period %d\n", beaconintval);
+	ath_dbg(common, BEACON, "DTIM period %d\n", dtimperiod);
 
 	ENABLE_REGWRITE_BUFFER(ah);
 
@@ -2763,22 +2748,10 @@ void ath9k_hw_set_gpio(struct ath_hw *ah, u32 gpio, u32 val)
 	if (AR_SREV_9271(ah))
 		val = ~val;
 
-	if ((1 << gpio) & AR_GPIO_OE_OUT_MASK)
-		REG_RMW(ah, AR_GPIO_IN_OUT, ((val & 1) << gpio),
-			AR_GPIO_BIT(gpio));
-	else
-		gpio_set_value(gpio, val & 1);
+	REG_RMW(ah, AR_GPIO_IN_OUT, ((val & 1) << gpio),
+		AR_GPIO_BIT(gpio));
 }
 EXPORT_SYMBOL(ath9k_hw_set_gpio);
-
-void ath9k_hw_request_gpio(struct ath_hw *ah, u32 gpio, const char *label)
-{
-	if (gpio >= ah->caps.num_gpio_pins)
-		return;
-
-	gpio_request_one(gpio, GPIOF_DIR_OUT | GPIOF_INIT_LOW, label);
-}
-EXPORT_SYMBOL(ath9k_hw_request_gpio);
 
 void ath9k_hw_setantenna(struct ath_hw *ah, u32 antenna)
 {
@@ -2809,6 +2782,9 @@ void ath9k_hw_setrxfilter(struct ath_hw *ah, u32 bits)
 	u32 phybits;
 
 	ENABLE_REGWRITE_BUFFER(ah);
+
+	if (AR_SREV_9462(ah) || AR_SREV_9565(ah))
+		bits |= ATH9K_RX_FILTER_CONTROL_WRAPPER;
 
 	REG_WRITE(ah, AR_RX_FILTER, bits);
 
@@ -3233,7 +3209,6 @@ static struct {
 	{ AR_SREV_VERSION_9550,         "9550" },
 	{ AR_SREV_VERSION_9565,         "9565" },
 	{ AR_SREV_VERSION_9531,         "9531" },
-	{ AR_SREV_VERSION_9561,         "9561" },
 };
 
 /* For devices with external radios */

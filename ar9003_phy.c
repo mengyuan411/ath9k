@@ -912,18 +912,19 @@ static int ar9003_hw_process_ini(struct ath_hw *ah,
 		 */
 		if ((ar9003_hw_get_rx_gain_idx(ah) == 2) ||
 		    (ar9003_hw_get_rx_gain_idx(ah) == 3)) {
-			REG_WRITE_ARRAY(&ah->ini_modes_rxgain_xlna,
+			REG_WRITE_ARRAY(&ah->ini_modes_rxgain_5g_xlna,
 					modesIndex, regWrites);
 		}
+
+		if (AR_SREV_9561(ah) && (ar9003_hw_get_rx_gain_idx(ah) == 0))
+			REG_WRITE_ARRAY(&ah->ini_modes_rxgain_5g_xlna,
+					modesIndex, regWrites);
 	}
 
 	if (AR_SREV_9550(ah) || AR_SREV_9561(ah))
 		REG_WRITE_ARRAY(&ah->ini_modes_rx_gain_bounds, modesIndex,
 				regWrites);
 
-	if (AR_SREV_9561(ah) && (ar9003_hw_get_rx_gain_idx(ah) == 0))
-		REG_WRITE_ARRAY(&ah->ini_modes_rxgain_xlna,
-				modesIndex, regWrites);
 	/*
 	 * TXGAIN initvals.
 	 */
@@ -2018,8 +2019,7 @@ void ar9003_hw_attach_phy_ops(struct ath_hw *ah)
  *             to be disabled.
  *
  * 0x04000409: Packet stuck on receive.
- *             Full chip reset is required for all chips except
- *	       AR9340, AR9531 and AR9561.
+ *             Full chip reset is required for all chips except AR9340.
  */
 
 /*
@@ -2048,7 +2048,7 @@ bool ar9003_hw_bb_watchdog_check(struct ath_hw *ah)
 	case 0x04000b09:
 		return true;
 	case 0x04000409:
-		if (AR_SREV_9340(ah) || AR_SREV_9531(ah) || AR_SREV_9561(ah))
+		if (AR_SREV_9340(ah) || AR_SREV_9531(ah))
 			return false;
 		else
 			return true;

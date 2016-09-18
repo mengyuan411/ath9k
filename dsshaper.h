@@ -16,26 +16,40 @@
 
 //#ifndef ATH9K_H
 //#define ATH9K_H
-
-#include <linux/etherdevice.h>
-#include <linux/device.h>
-#include <linux/interrupt.h>
-#include <linux/leds.h>
-#include <linux/completion.h>
-#include <linux/time.h>
+//#include <linux/dma-mapping.h>
+//#include <linux/etherdevice.h>
+//#include <linux/device.h>
+//#include <linux/interrupt.h>
+//#include <linux/leds.h>
+//#include <linux/completion.h>
+//#include <linux/time.h>
 #include <linux/timer.h> //for timer mengy
-#include <linux/hw_random.h>
+//#include <linux/hw_random.h>
+#include <net/mac80211.h>
+#include <linux/types.h>
+//#include <include/linux/list.h>
 
-#include "common.h"
-#include "debug.h"
-#include "mci.h"
-#include "dfs.h"
+//#include "common.h"
+//#include <net/mac80211.h>
 
-extern struct ieee80211_ops ath9k_ops;
-extern int ath9k_modparam_nohwcrypt;
-extern int ath9k_led_blink;
-extern bool is_ath9k_unloaded;
-extern int ath9k_use_chanctx;
+//#include "../ath.h"
+
+//#include "hw.h"
+//#include "hw-ops.h"
+
+//#include "common-init.h"
+//#include "common-beacon.h"
+//#include "common-debug.h"
+//#include "common-spectral.h"
+//#include "debug.h"
+//#include "mci.h"
+//#include "dfs.h"
+
+//extern struct ieee80211_ops ath9k_ops;
+//extern int ath9k_modparam_nohwcrypt;
+//extern int ath9k_led_blink;
+//extern bool is_ath9k_unloaded;
+//extern int ath9k_use_chanctx;
 
 
 #ifndef ATH9K_DSSHAPPER_H
@@ -45,17 +59,17 @@ extern int ath9k_use_chanctx;
 
 
 
-class DSShaper;
+//class DSShaper;
 
-class DSShaperHandler : public Handler {
-public:
-	DSShaperHandler(DSShaper *s) : shaper_(s) {}
-	void handle(Event *e);
-private:
-	DSShaper *shaper_;
-};
+//class DSShaperHandler : public Handler {
+//public:
+//	DSShaperHandler(DSShaper *s) : shaper_(s) {}
+//	void handle(Event *e);
+//private:
+//	DSShaper *shaper_;
+//};
 
-
+/*
 class DSShaper: public Connector {
 private:
 	int		received_packets ;
@@ -83,16 +97,16 @@ public:
 	int		burst_size_ ;
 	int         max_queue_length;
 } ;
-
+*/
 //bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
-int list_length(struct list_head *head);
-int timer_module(double time_delay,struct timer_list *my_timer);
-void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
-bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
-void schedule_packet(list_head *p,int len);
-void resume();
-bool in_profile(int size);
-void update_bucket_contents();
+//int list_length(struct list_head *head);
+//int timer_module(double time_delay,struct timer_list *my_timer);
+//extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+//bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
+//void schedule_packet(struct list_head *p,int len);
+//void resume(void);
+//int in_profile(int size);
+//void update_bucket_contents(void);
 /*
 void schedule_packet(Packet *p);
 bool in_profile(Packet *p);
@@ -110,8 +124,8 @@ struct DSShaper {
 	int		dropped_packets ;
 	int		curr_bucket_contents ;
 	int		flow_id_;
-	double      last_time ;
-	double		peak_ ;
+	int      last_time ;
+	int		peak_ ;
 	int		burst_size_ ;
 	int         max_queue_length;
 };
@@ -144,3 +158,4 @@ struct packet_msg
   //
 
 struct timer_list a_timer;
+#endif

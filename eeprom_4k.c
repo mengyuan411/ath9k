@@ -177,29 +177,73 @@ static u32 ath9k_hw_4k_dump_eeprom(struct ath_hw *ah, bool dump_base_hdr,
 }
 #endif
 
+
+#undef SIZE_EEPROM_4K
+
 static int ath9k_hw_4k_check_eeprom(struct ath_hw *ah)
 {
+#define EEPROM_4K_SIZE (sizeof(struct ar5416_eeprom_4k) / sizeof(u16))
+	struct ath_common *common = ath9k_hw_common(ah);
 	struct ar5416_eeprom_4k *eep = &ah->eeprom.map4k;
-	u32 el;
-	bool need_swap;
-	int i, err;
+	u16 *eepdata, temp, magic, magic2;
+	u32 sum = 0, el;
+	bool need_swap = false;
+	int i, addr;
 
-	err = ath9k_hw_nvram_swap_data(ah, &need_swap, SIZE_EEPROM_4K);
-	if (err)
-		return err;
+
+	if (!ath9k_hw_use_flash(ah)) {
+		if (!ath9k_hw_nvram_read(ah, AR5416_EEPROM_MAGIC_OFFSET,
+					 &magic)) {
+			ath_err(common, "Reading Magic # failed\n");
+			return false;
+		}
+
+		ath_dbg(common, EEPROM, "Read Magic = 0x%04X\n", magic);
+
+		if (magic != AR5416_EEPROM_MAGIC) {
+			magic2 = swab16(magic);
+
+			if (magic2 == AR5416_EEPROM_MAGIC) {
+				need_swap = true;
+				eepdata = (u16 *) (&ah->eeprom);
+
+				for (addr = 0; addr < EEPROM_4K_SIZE; addr++) {
+					temp = swab16(*eepdata);
+					*eepdata = temp;
+					eepdata++;
+				}
+			} else {
+				ath_err(common,
+					"Invalid EEPROM Magic. Endianness mismatch.\n");
+				return -EINVAL;
+			}
+		}
+	}
+
+	ath_dbg(common, EEPROM, "need_swap = %s\n",
+		need_swap ? "True" : "False");
 
 	if (need_swap)
-		el = swab16(eep->baseEepHeader.length);
+		el = swab16(ah->eeprom.map4k.baseEepHeader.length);
 	else
-		el = eep->baseEepHeader.length;
+		el = ah->eeprom.map4k.baseEepHeader.length;
 
-	el = min(el / sizeof(u16), SIZE_EEPROM_4K);
-	if (!ath9k_hw_nvram_validate_checksum(ah, el))
-		return -EINVAL;
+	if (el > sizeof(struct ar5416_eeprom_4k))
+		el = sizeof(struct ar5416_eeprom_4k) / sizeof(u16);
+	else
+		el = el / sizeof(u16);
+
+	eepdata = (u16 *)(&ah->eeprom);
+
+	for (i = 0; i < el; i++)
+		sum ^= *eepdata++;
 
 	if (need_swap) {
 		u32 integer;
 		u16 word;
+
+		ath_dbg(common, EEPROM,
+			"EEPROM Endianness is not native.. Changing\n");
 
 		word = swab16(eep->baseEepHeader.length);
 		eep->baseEepHeader.length = word;
@@ -239,14 +283,16 @@ static int ath9k_hw_4k_check_eeprom(struct ath_hw *ah)
 		}
 	}
 
-	if (!ath9k_hw_nvram_check_version(ah, AR5416_EEP_VER,
-	    AR5416_EEP_NO_BACK_VER))
+	if (sum != 0xffff || ah->eep_ops->get_eeprom_ver(ah) != AR5416_EEP_VER ||
+	    ah->eep_ops->get_eeprom_rev(ah) < AR5416_EEP_NO_BACK_VER) {
+		ath_err(common, "Bad EEPROM checksum 0x%x or revision 0x%04x\n",
+			sum, ah->eep_ops->get_eeprom_ver(ah));
 		return -EINVAL;
+	}
 
 	return 0;
+#undef EEPROM_4K_SIZE
 }
-
-#undef SIZE_EEPROM_4K
 
 static u32 ath9k_hw_4k_get_eeprom(struct ath_hw *ah,
 				  enum eeprom_param param)
@@ -884,7 +930,6 @@ static void ath9k_hw_4k_set_board_values(struct ath_hw *ah,
 		}
 	}
 
-	ENABLE_REG_RMW_BUFFER(ah);
 	if (AR_SREV_9271(ah)) {
 		ath9k_hw_analog_shift_rmw(ah,
 					  AR9285_AN_RF2G3,
@@ -989,19 +1034,18 @@ static void ath9k_hw_4k_set_board_values(struct ath_hw *ah,
 					  AR9285_AN_RF2G4_DB2_4_S,
 					  db2[4]);
 	}
-	REG_RMW_BUFFER_FLUSH(ah);
 
-	ENABLE_REG_RMW_BUFFER(ah);
+
 	REG_RMW_FIELD(ah, AR_PHY_SETTLING, AR_PHY_SETTLING_SWITCH,
 		      pModal->switchSettling);
 	REG_RMW_FIELD(ah, AR_PHY_DESIRED_SZ, AR_PHY_DESIRED_SZ_ADC,
 		      pModal->adcDesiredSize);
 
-	REG_RMW(ah, AR_PHY_RF_CTL4,
-		SM(pModal->txEndToXpaOff, AR_PHY_RF_CTL4_TX_END_XPAA_OFF) |
-		SM(pModal->txEndToXpaOff, AR_PHY_RF_CTL4_TX_END_XPAB_OFF) |
-		SM(pModal->txFrameToXpaOn, AR_PHY_RF_CTL4_FRAME_XPAA_ON)  |
-		SM(pModal->txFrameToXpaOn, AR_PHY_RF_CTL4_FRAME_XPAB_ON), 0);
+	REG_WRITE(ah, AR_PHY_RF_CTL4,
+		  SM(pModal->txEndToXpaOff, AR_PHY_RF_CTL4_TX_END_XPAA_OFF) |
+		  SM(pModal->txEndToXpaOff, AR_PHY_RF_CTL4_TX_END_XPAB_OFF) |
+		  SM(pModal->txFrameToXpaOn, AR_PHY_RF_CTL4_FRAME_XPAA_ON)  |
+		  SM(pModal->txFrameToXpaOn, AR_PHY_RF_CTL4_FRAME_XPAB_ON));
 
 	REG_RMW_FIELD(ah, AR_PHY_RF_CTL3, AR_PHY_TX_END_TO_A2_RX_ON,
 		      pModal->txEndToRxOn);
@@ -1029,8 +1073,6 @@ static void ath9k_hw_4k_set_board_values(struct ath_hw *ah,
 				      AR_PHY_SETTLING_SWITCH,
 				      pModal->swSettleHt40);
 	}
-
-	REG_RMW_BUFFER_FLUSH(ah);
 
 	bb_desired_scale = (pModal->bb_scale_smrt_antenna &
 			EEP_4K_BB_DESIRED_SCALE_MASK);

@@ -140,7 +140,7 @@ void ath_init_leds(struct ath_softc *sc)
 	else
 		trigger = ieee80211_get_radio_led_name(sc->hw);
 
-	ath_create_gpio_led(sc, sc->sc_ah->led_pin, led_name, trigger, !sc->sc_ah->config.led_active_high);
+	ath_create_gpio_led(sc, sc->sc_ah->led_pin, led_name, trigger, 1);
 
 	if (!pdata)
 		return;
@@ -153,14 +153,8 @@ void ath_fill_led_pin(struct ath_softc *sc)
 {
 	struct ath_hw *ah = sc->sc_ah;
 
-	if (AR_SREV_9100(ah))
+	if (AR_SREV_9100(ah) || (ah->led_pin >= 0))
 		return;
-
-	if (ah->led_pin >= 0) {
-		if (!((1 << ah->led_pin) & AR_GPIO_OE_OUT_MASK))
-			ath9k_hw_request_gpio(ah, ah->led_pin, "ath9k-led");
-		return;
-	}
 
 	if (AR_SREV_9287(ah))
 		ah->led_pin = ATH_LED_PIN_9287;

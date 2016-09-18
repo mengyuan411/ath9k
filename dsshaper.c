@@ -50,20 +50,32 @@ DSShaper::DSShaper() : Connector(),
 
 }
 */
-
-struct DSShaper *a_dsshaper;
-a_dsshaper->received_packets=0;
-a_dsshaper->sent_packets=0;
-a_dsshaper->shaped_packets=0;
-a_dsshaper->dropped_packets=0;
-a_dsshaper->max_queue_length=0;
-a_dsshaper->flow_id_=0;
-a_dsshaper->last_time=0;
-a_dsshaper->burst_size_=1;
+//extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+int list_length(struct list_head *head);
+int timer_module(double time_delay,struct timer_list *my_timer);
+//extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
+void schedule_packet(struct list_head *p,int len);
+void resume(void);
+bool in_profile(int size);
+void update_bucket_contents(void);
+extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
+                           struct list_head *head, bool internal);
+struct DSShaper dsshaper_my = { 0,0,0,0,0,0,0,11,1,0};
+//dsshaper_my=(struct DSShaper*)malloc(sizeof(struct DSShaper));
+//dsshaper_my->received_packets=0;
+//dsshaper_my->sent_packets=0;
+//dsshaper_my->shaped_packets=0;
+//dsshaper_my->dropped_packets=0;
+//dsshaper_my->max_queue_length=0;
+//dsshaper_my->flow_id_=0;
+//dsshaper_my->last_time=0;
+//dsshaper_my->burst_size_=1;
 struct list_head shape_queue;
-INIT_LIST_HEAD(&shape_queue);
+int init_flag = 0;
+//INIT_LIST_HEAD(shape_queue);
 struct list_head shape_queue_msg;
-INIT_LIST_HEAD(&shape_queue_msg);
+//INIT_LIST_HEAD(shape_queue_msg);
 //&a_dsshaper->shape_queue=NULL;
 
 int list_length(struct list_head *head)
@@ -95,25 +107,29 @@ int timer_module(double time_delay,struct timer_list *my_timer)
   setup_timer( my_timer,resume, 0 );
 
   //printk( "Starting timer to fire in %ld ms (%ld)\n", time_delay,jiffies );
-  ret = mod_timer( &my_timer, jiffies + msecs_to_jiffies(time_delay) );
+  ret = mod_timer(my_timer, jiffies + msecs_to_jiffies(time_delay) );
   if (ret) printk("Error in mod_timer\n");
 
   return 0;
 }
 
 
-void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal)
+extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal)
 {
 
 	//struct hdr_cmn *hdr = hdr_cmn::access(p); // unsettled
 	//printf("[changhua pei][TC-recv   ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
-	
-	a_dsshaper->received_packets++;
+	if(init_flag == 0){
+		INIT_LIST_HEAD(&shape_queue);
+		INIT_LIST_HEAD(&shape_queue_msg);
+		init_flag=1;
+	}				
+	dsshaper_my.received_packets++;
 
 	if (list_empty(&shape_queue)) {
 //          There are no packets being shapped. Tests profile.
 	    if (in_profile(len)) {
- 	        a_dsshaper->sent_packets++;
+ 	        dsshaper_my.sent_packets++;
  	        ath_tx_txqaddbuf(sc, txq, p, internal);
 	        //target_->recv(p,h);   //unsettled why call this here? 
 	    } else {
@@ -125,19 +141,19 @@ void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *
             } 
   	} else {          	    
 //          There are packets being shapped. Shape this packet too.
-            shape_packet(p);         
+            shape_packet(p,sc,txq,internal,len);         
 	}
 }
 
 bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len)
 {
-        if (list_length(shape_queue) >= a_dsshaper->max_queue_length) {
-	    drop (p);// unsettled how to drop?
-	    a_dsshaper->dropped_packets++;
+        if (list_length(&shape_queue) >= dsshaper_my.max_queue_length) {
+	    //drop (p);// unsettled how to drop?
+	    dsshaper_my.dropped_packets++;
 	    return false;
         } 
         //shape_queue.enque(p);
-        list_add_tail(packet,shape_queue);
+        list_add_tail(packet,&shape_queue);
         
 
         struct packet_msg *msg;
@@ -146,10 +162,10 @@ bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq 
         msg->txq = txq;
         msg->internal = internal;
         msg->len = len;
-        list_add_tail(msg,shape_queue_msg);
+        list_add_tail(&msg->list,&shape_queue_msg);
 
 
-        a_dsshaper->shaped_packets++;
+        dsshaper_my.shaped_packets++;
 		
 		//struct hdr_cmn *hdr = hdr_cmn::access(p);
 		//printf("[changhua pei][TC-enque  ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
@@ -158,7 +174,7 @@ bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq 
 	return true;
 }
 
-void schedule_packet(list_head *p,int len)
+void schedule_packet(struct list_head *p,int len)
 {
 //      calculate time to wake up	
 		struct timer_list my_timer;          
@@ -175,40 +191,43 @@ void schedule_packet(list_head *p,int len)
 void resume()
 {
 	struct list_head *p;
-	p = shape_queue->next;
-	struct list_head *msg;
-	msg = shape_queue_msg->next;
+	p = (&shape_queue)->next;
+	struct list_head *lh;
+	lh = (&shape_queue_msg)->next;
+	struct packet_msg *msg;
+	msg = list_entry(lh,struct packet_msg,list);
+	
 	if (!list_empty(&shape_queue)){
 			//p = shape_queue.deque();
 		list_del(p);
-		list_del(msg);
+		list_del(lh);
 	}else{
-		printf("[changhua pei][Error     ][the queue is empty!]\n");
+		//printf("[changhua pei][Error     ][the queue is empty!]\n");
 		return;
 	}
 
 	//struct hdr_cmn *hdr = hdr_cmn::access(p);
 	//printf("[changhua pei][TC-resume ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
 	
-	if (in_profile(len)) {
-            a_dsshaper->sent_packets++;
+	if (in_profile(msg->len)) {
+            dsshaper_my.sent_packets++;
             ath_tx_txqaddbuf(msg->sc, msg->txq, p, msg->internal);
             //target_->recv(p,(Handler*) NULL);  //unsettled why recv? 
 
 	} else {
 		//printf("[changhua pei][TC-resume0][%d->%d][id=%d][puid_=%d][schedule until the packet is sent out!]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_, p->uid_);
-        schedule_packet(p,len);
+        schedule_packet(p,msg->len);
 		return;
 	} 
 
 	if (!list_empty(&shape_queue)) {  //why don't check the bucket again?
 //         There are packets in the queue. Schedule the first one.
-           Packet *first_p = shape_queue.lookup(0);
+           //Packet *first_p = shape_queue.lookup(0);
            /*Note that: here the bucket may be filled quickly so that the first packet in the queue can be 
 		    * quickly sent out
 			*/
-		   Scheduler& s = Scheduler::instance();
-		   s.schedule(&sh_, first_p, 0);         
+		   //Scheduler& s = Scheduler::instance();
+		   //s.schedule(&sh_, first_p, 0);         
     }   
 } 
 
@@ -230,10 +249,10 @@ bool in_profile(int size)
 		   //curr_bucket_contents,packetsize,peak_,burst_size_);
 	
 	
-	if (packetsize > a_dsshaper->curr_bucket_contents)
+	if (packetsize > dsshaper_my.curr_bucket_contents)
 		return false;
 	else {
-		a_dsshaper->curr_bucket_contents -= packetsize ;
+		dsshaper_my.curr_bucket_contents -= packetsize ;
 		return true ;
 	}
 }
@@ -243,16 +262,17 @@ void update_bucket_contents()
 //      I'm using the token bucket implemented by Sean Murphy
         
 	//double current_time = Scheduler::instance().clock() ;
-	void do_gettimeofday(struct timeval *tv);
+	struct timeval *tv;
+	void do_gettimeofday(tv);
 	double current_time = (double) tv->tv_sec;
 
 	
-	double added_bits = (current_time - a_dsshaper->last_time) * peak_ ; //unsettled
+	double added_bits = (current_time - dsshaper_my.last_time) * dsshaper_my.peak_ ; //unsettled
 
-	a_dsshaper->curr_bucket_contents += (int) (added_bits + 0.5);
-	if (a_dsshaper->curr_bucket_contents > a_dsshaper->burst_size_)
-		a_dsshaper->curr_bucket_contents=a_dsshaper->burst_size_ ;
-	a_dsshaper->last_time = current_time ;
+	dsshaper_my.curr_bucket_contents += (int) (added_bits + 0.5);
+	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
+		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ;
+	dsshaper_my.last_time = current_time ;
 
 
 }
