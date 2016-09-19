@@ -18,6 +18,20 @@
 #include <linux/delay.h>
 #include "ath9k.h"
 #include "btcoex.h"
+#include <linux/time.h>
+/*add by mengy*/
+int first_flag_=0;  /*used to set the global parameters*/
+int ntrans_ = 0;	
+//double delay_optimal_=;  /*some global config, which should be configed by the tcl command*/
+int delay_sum_ = 0;
+int pktsize_sum_ = 0;
+struct timeval *checktime_;
+u32 checkInterval_ = 5000000;//ns
+int alpha_ = 0; //%
+
+	
+double delay_avg_; /*used to store the average delay*/
+
 
 u8 ath9k_parse_mpdudensity(u8 mpdudensity)
 {
@@ -53,6 +67,8 @@ u8 ath9k_parse_mpdudensity(u8 mpdudensity)
 		return 0;
 	}
 }
+/*add by mengy*/
+void update_deqrate(int  pdelay_, int alldelay_, int pktsize_,int direction_, int prevhop_,int packet_type_);
 
 static bool ath9k_has_pending_frames(struct ath_softc *sc, struct ath_txq *txq,
 				     bool sw_pending)
@@ -751,11 +767,29 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		     struct ieee80211_tx_control *control,
 		     struct sk_buff *skb)
 {
+	
+	if(first_flag_==0){
+		do_gettimeofday(checktime_);
+		first_flag_=1
+	}
+	
+	
+	if(control->flag==1)
+	{
+		int pdelay = control->pdelay;
+		int alldelay = control->alldelay;
+		int psize = control -> psize;
+		
+			
+	}
+
 	struct ath_softc *sc = hw->priv;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 	struct ath_tx_control txctl;
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
 	unsigned long flags;
+		
+	
 
 	if (sc->ps_enabled) {
 		/*
