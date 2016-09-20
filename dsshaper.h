@@ -131,7 +131,7 @@ struct DSShaper {
 	int         max_queue_length;
 };
 
-extern int flow_peak;
+//extern int flow_peak;
 struct packet_msg
 {
 	/* data */

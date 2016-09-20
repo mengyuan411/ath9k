@@ -19,13 +19,13 @@
 #include "ath9k.h"
 #include "btcoex.h"
 #include <linux/time.h>
-#include "dsshaper.h"
+//#include "dsshaper.h"
 /*add by mengy*/
 int first_flag_=0;  /*used to set the global parameters*/
 int ntrans_ = 0;	
 //double delay_optimal_=;  /*some global config, which should be configed by the tcl command*/
 struct timespec delay_sum_={0};
-u64 delay_avg_= 0;
+int delay_avg_= 0;
 int pktsize_sum_ = 0;
 struct timespec checktime_;
 struct timespec checkThtime_;
@@ -39,10 +39,12 @@ int delay_optimal_ = 2000;//us
 int beta_ = 100000;
 int deltaIncrease_ = 1000000;
 int fix_peak = 80000000;
-
+int flow_peak = 80000000;
 extern void update_bucket_contents(void);
 	
 //double delay_avg_; /*used to store the average delay*/
+
+/*add end by mengy*/
 
 
 u8 ath9k_parse_mpdudensity(u8 mpdudensity)
@@ -91,7 +93,7 @@ void update_deqrate(struct timespec  pdelay_, struct timespec alldelay_, int pkt
 	
 	
 	
-	printk(KERN_DEBUG "[changhua pei][UpdateD   ][time=%ld.%ld][delay=%ld,%ld][all_delay=%ld.%ld][pktsize_=%d]\n",now_.tv_sec,now_.tv_nsec,pdelay_.tv_sec,pdelay_.tv_nsec,alldelay_.tv_sec,alldelay_.tv_nsec,pktsize_*8);
+	printk(KERN_DEBUG "[changhua pei][UpdateD   ][time=%ld.%ld][delay=%ld.%ld][all_delay=%ld.%ld][pktsize_=%d]\n",now_.tv_sec,now_.tv_nsec,pdelay_.tv_sec,pdelay_.tv_nsec,alldelay_.tv_sec,alldelay_.tv_nsec,pktsize_*8);
 	
 	
 	
@@ -101,12 +103,12 @@ void update_deqrate(struct timespec  pdelay_, struct timespec alldelay_, int pkt
 	pktsize_sum_ += pktsize_*8;
 	struct timespec tmp_sub = timespec_sub(now_, checktime_);
 	if( timespec_compare(&tmp_sub,&checkInterval_) >0 ){
-		u64 delay_instant_ = (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec/1000)/ntrans_; //us
+		int delay_instant_ = (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec/1000)/ntrans_; //us
 		delay_avg_ = alpha_ * delay_avg_  / 100 + ( 100 - alpha_) * delay_instant_/100;//us
 		
 		
 		
-		rate_avg_ = pktsize_sum_ * 1000000 / (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec / 1000); //bits/s
+		rate_avg_ = pktsize_sum_ * 1000000 / (int) (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec / 1000); //bits/s
 		if (switchOn_)
 		{
 			if( delay_avg_ > delay_optimal_ )
@@ -144,7 +146,7 @@ void update_deqrate(struct timespec  pdelay_, struct timespec alldelay_, int pkt
 		checkThtime_ = now_;
 	}
 }
-
+/*add end by mengy*/
 static bool ath9k_has_pending_frames(struct ath_softc *sc, struct ath_txq *txq,
 				     bool sw_pending)
 {
@@ -842,7 +844,7 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		     struct ieee80211_tx_control *control,
 		     struct sk_buff *skb)
 {
-	
+	/*add by mengy*/
 	if(first_flag_==0){
 		getnstimeofday(&checktime_);
 		getnstimeofday(&checkThtime_);
@@ -856,10 +858,13 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		struct timespec pdelay = control->pdelay;
 		struct timespec alldelay = control->alldelay;
 		int psize = control -> psize;
-		update_deqrate(pdelay,alldelay,psize);
-		
+		printk(KERN_DEBUG "pdelay[%ld.%ld],alldelay[%ld.%ld],psize[%ld]\n",pdelay.tv_sec,pdelay.tv_nsec,alldelay.tv_sec,alldelay.tv_nsec,psize);
+		//update_deqrate(pdelay,alldelay,psize);
+		kfree(hw);
+		return;
 			
 	}
+	/*add end by mengy*/
 
 	struct ath_softc *sc = hw->priv;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
@@ -2772,4 +2777,5 @@ struct ieee80211_ops ath9k_ops = {
 	.sw_scan_complete   = ath9k_sw_scan_complete,
 	.get_txpower        = ath9k_get_txpower,
 };
+
 

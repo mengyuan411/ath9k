@@ -1494,8 +1494,8 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	}
 
 	ath_tx_fill_desc(sc, bf, txq, aggr_len);
-	recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
-	//ath_tx_txqaddbuf(sc, txq, &bf_q, false);
+	//recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
+	ath_tx_txqaddbuf(sc, txq, &bf_q, false);
 	return true;
 }
 

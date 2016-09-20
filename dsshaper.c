@@ -279,7 +279,7 @@ extern void update_bucket_contents()
 	
 	int added_bits = (int) (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000) * flow_peak / 1000 ; //unsettled
 
-	dsshaper_my.curr_bucket_contents += (int) (added_bits + 0.5);
+	dsshaper_my.curr_bucket_contents += (int) (added_bits * 10  + 5) /10 ;
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
 		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ; //unsettled how to update burst_size
 	dsshaper_my.last_time = current_time ;
@@ -344,4 +344,5 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
 
