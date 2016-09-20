@@ -24,6 +24,7 @@
 //#include <linux/completion.h>
 //#include <linux/time.h>
 #include <linux/timer.h> //for timer mengy
+#include <linux/time.h>
 //#include <linux/hw_random.h>
 #include <net/mac80211.h>
 #include <linux/types.h>
@@ -124,12 +125,13 @@ struct DSShaper {
 	int		dropped_packets ;
 	int		curr_bucket_contents ;
 	int		flow_id_;
-	int      last_time ;
-	int		peak_ ;
+	struct timespec      last_time ;
+	//int		peak_ ;
 	int		burst_size_ ;
 	int         max_queue_length;
 };
 
+extern int flow_peak;
 struct packet_msg
 {
 	/* data */
@@ -157,5 +159,6 @@ struct packet_msg
 
   //
 
-struct timer_list a_timer;
+//struct timer_list a_timer;
 #endif
+

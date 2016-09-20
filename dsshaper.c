@@ -1,6 +1,4 @@
-/* -*-	Mode:C++; c-basic-offset:8; tab-width:8; indent-tabs-mode:t -*- */
-/*
- * Copyright (c) 1999, Federal University of Pernambuco - Brazil.
+/*opyright (c) 1999, Federal University of Pernambuco - Brazil.
  * All rights reserved.
  *
  * License is granted to copy, to use, and to make and to use derivative
@@ -52,16 +50,17 @@ DSShaper::DSShaper() : Connector(),
 */
 //extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
 int list_length(struct list_head *head);
-int timer_module(double time_delay,struct timer_list *my_timer);
+int timer_module(int time_delay,struct timer_list *my_timer);
 //extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
 bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 void schedule_packet(struct list_head *p,int len);
 void resume(void);
 bool in_profile(int size);
-void update_bucket_contents(void);
+extern void update_bucket_contents(void);
 extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
                            struct list_head *head, bool internal);
-struct DSShaper dsshaper_my = { 0,0,0,0,0,0,0,11,1,0};
+struct DSShaper dsshaper_my = { 0,0,0,0,0,0,{0,0},80000,30};
+//extern int flow_peak=11;
 //dsshaper_my=(struct DSShaper*)malloc(sizeof(struct DSShaper));
 //dsshaper_my->received_packets=0;
 //dsshaper_my->sent_packets=0;
@@ -97,7 +96,7 @@ int list_length(struct list_head *head)
 
 }
 
-int timer_module(double time_delay,struct timer_list *my_timer)
+int timer_module(int time_delay,struct timer_list *my_timer)
 {
   int ret;
 
@@ -179,8 +178,8 @@ void schedule_packet(struct list_head *p,int len)
 //      calculate time to wake up	
 		struct timer_list my_timer;          
         //int packetsize = hdr_cmn::access(p)->size_ * 8 ;
-        //double delay = (packetsize - curr_bucket_contents)/peak_;
-        double delay  = 1500.0*8.0*0.000001/11; //use msec unsettled where is length?
+        int delay = (int) (len - dsshaper_my.curr_bucket_contents) * 1000 /flow_peak; //ms
+        //double delay  = 1500.0*8.0*0.000001/11; //use msec unsettled where is length?
 
 		//Scheduler& s = Scheduler::instance();
 	    //s.schedule(&sh_, p, delay);
@@ -208,7 +207,7 @@ void resume()
 		list_del(p);
 		list_del(lh);
 	}else{
-		//printf("[changhua pei][Error     ][the queue is empty!]\n");
+		printk(KERN_DEBUG "[changhua pei][Error     ][the queue is empty!]\n");
 		return;
 	}
 
@@ -265,17 +264,20 @@ bool in_profile(int size)
 	}
 }
 
-void update_bucket_contents()
+extern void update_bucket_contents()
 {
 //      I'm using the token bucket implemented by Sean Murphy
         
 	//double current_time = Scheduler::instance().clock() ;
-	struct timeval *tv;
-	void do_gettimeofday(tv);
-	double current_time = (double) tv->tv_sec;
+	struct timespec current_time;
+	getnstimeofday(&current_time);
+	//struct timeval *tv;
+	//void do_gettimeofday(tv);
+	//u32 current_time = tv.tv_sec * 1000000 + tv.tv_nsec / 1000;
+	struct timespec tmp_sub = timespec_sub(current_time,dsshaper_my.last_time);
 
 	
-	double added_bits = (current_time - dsshaper_my.last_time) * dsshaper_my.peak_ ; //unsettled
+	int added_bits = (int) (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000) * flow_peak / 1000 ; //unsettled
 
 	dsshaper_my.curr_bucket_contents += (int) (added_bits + 0.5);
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
@@ -342,3 +344,4 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
