@@ -17,7 +17,7 @@
 #include <linux/dma-mapping.h>
 #include "ath9k.h"
 #include "ar9003_mac.h"
-//#include "dsshaper.h"
+#include "dsshaper.h"
 
 #define BITS_PER_BYTE           8
 #define OFDM_PLCP_BITS          22
@@ -68,14 +68,38 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 					   struct ath_txq *txq,
 					   struct ath_atx_tid *tid,
 					   struct sk_buff *skb);
-
-extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+void printampdu(struct list_head *head,int type,u8 tidno);//add by mengy
+extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);//add by mengy
 enum {
 	MCS_HT20,
 	MCS_HT20_SGI,
 	MCS_HT40,
 	MCS_HT40_SGI,
 };
+//add by mengy
+void printampdu(struct list_head *head,int type, u8 tidno){
+	struct ath_buf *bf;
+	struct list_head *bf_q;
+	//bf= list_first_entry(bf_q, struct ath_buf, list);
+	struct sk_buff *skb;
+	int count = 0;
+	struct timespec now;
+        getnstimeofday(&now);
+	//printk(KERN_DEBUG "ath9ktime,2,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
+	bf_q = head -> next;
+	while ( bf_q != head)
+	{
+		//printk(KERN_DEBUG "ath9ktime,2,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
+		count++;
+		bf = list_entry(bf_q, struct ath_buf, list);
+		skb = bf->bf_mpdu;
+		printk(KERN_DEBUG "ath9ktime,%d,%d,%ld,%ld,%ld,%ld\n",type,count,ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
+		bf_q = bf_q -> next;
+		//bf = bf_first
+	//while
+	//struct sk_buff *skb = bf->bf_mpdu;
+	}
+}
 
 /*********************/
 /* Aggregation logic */
@@ -487,7 +511,7 @@ static void ath_tx_complete_aggr(struct ath_softc *sc, struct ath_txq *txq,
 
 			if (!bf->bf_state.stale || bf_next != NULL)
 				list_move_tail(&bf->list, &bf_head);
-
+			printk(KERN_DEBUG "anomaly call ath_tx_complete_buf in ath_tx_complete_aggr"); //test by mengy
 			ath_tx_complete_buf(sc, bf, txq, &bf_head, ts, 0);
 
 			bf = bf_next;
@@ -534,13 +558,33 @@ static void ath_tx_complete_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	__skb_queue_head_init(&bf_pending);
 
 	ath_tx_count_frames(sc, bf, ts, txok, &nframes, &nbad);
+	//int count = 0;
 	while (bf) {
+		
+		//struct timespec tt; //mengy
+        	//getnstimeofday(&tt);//mengy
+		//count++;
+		//printk(KERN_DEBUG "ath9kack,ampdu,%d,%d,%d\n",count,tt.tv_sec,tt.tv_nsec); //mengy
 		u16 seqno = bf->bf_state.seqno;
 
 		txfail = txpending = sendbar = 0;
 		bf_next = bf->bf_next;
 
 		skb = bf->bf_mpdu;
+		// add by mengy for the aggregation packet test
+		//printk(KERN_DEBUG "ath9k ath_tx_complete_aggr ack packet at %ld.%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec);
+		/*
+		struct timespec tw;
+		tw = ktime_to_timespec(skb->tstamp);
+		if(update_tw_flag==0 || timespec_compare(&tw,&this_tw) < 0)
+		{
+			this_tw = tw;
+			update_tw_flag=1;
+		}
+		packet_num++;
+		packet_size_all = packet_size_all + skb->len;
+                //getnstimeofday(&now);
+		*/
 		tx_info = IEEE80211_SKB_CB(skb);
 		fi = get_frame_info(skb);
 
@@ -692,6 +736,8 @@ static void ath_tx_process_buffer(struct ath_softc *sc, struct ath_txq *txq,
 
 	ts->duration = ath9k_hw_get_duration(sc->sc_ah, bf->bf_desc,
 					     ts->ts_rateindex);
+	struct timespec tt; //mengy
+        getnstimeofday(&tt);//mengy
 	if (!bf_isampdu(bf)) {
 		if (!flush) {
 			info = IEEE80211_SKB_CB(bf->bf_mpdu);
@@ -700,10 +746,15 @@ static void ath_tx_process_buffer(struct ath_softc *sc, struct ath_txq *txq,
 			ath_tx_rc_status(sc, bf, ts, 1, txok ? 0 : 1, txok);
 			ath_dynack_sample_tx_ts(sc->sc_ah, bf->bf_mpdu, ts);
 		}
+		printk(KERN_DEBUG "ath9kack,mpdu,%d,%d\n",tt.tv_sec,tt.tv_nsec);
 		ath_tx_complete_buf(sc, bf, txq, bf_head, ts, txok);
-	} else
-		ath_tx_complete_aggr(sc, txq, bf, bf_head, ts, txok);
+		//printk(KERN_DEBUG "ath9kack,1,%d,%d\n",ts.tv_sec,ts.tv_nsec); //mengy
+		
+	} else{
 
+		ath_tx_complete_aggr(sc, txq, bf, bf_head, ts, txok);
+		//printk(KERN_DEBUG "ath9kack,2,%d,%d\n",tt.tv_sec,tt.tv_nsec); //mengy
+	}	
 	if (!flush)
 		ath_txq_schedule(sc, txq);
 }
@@ -969,6 +1020,13 @@ ath_tx_form_aggr(struct ath_softc *sc, struct ath_txq *txq,
 
 	do {
 		skb = bf->bf_mpdu;
+		// add by mengy for the tw timestamp aggregation packet
+		struct timespec tw; 
+        	getnstimeofday(&tw);
+		//tw.tv_sec=1234567890;
+		//tw.tv_nsec=123456789;
+        	skb->tstamp = timespec_to_ktime(tw);
+		// add end by mengy
 		fi = get_frame_info(skb);
 
 		/* do not exceed aggregation limit */
@@ -1428,6 +1486,13 @@ ath_tx_form_burst(struct ath_softc *sc, struct ath_txq *txq,
 	do {
 		struct ieee80211_tx_info *tx_info;
 		skb = bf->bf_mpdu;
+		// add by mengy for the tw timestamp
+                struct timespec tw;
+                getnstimeofday(&tw);
+                tw.tv_sec=1234567890;
+                tw.tv_nsec=123456789;
+                skb->tstamp = timespec_to_ktime(tw);
+                // add end by mengy
 
 		nframes++;
 		__skb_unlink(skb, tid_q);
@@ -1480,10 +1545,17 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 
 	ath_set_rates(tid->an->vif, tid->an->sta, bf);
 	if (aggr)
-		last = ath_tx_form_aggr(sc, txq, tid, &bf_q, bf,
+		{
+			last = ath_tx_form_aggr(sc, txq, tid, &bf_q, bf,
 					tid_q, &aggr_len);
+			printampdu(&bf_q,2,tid->tidno);//add by mengy
+			//printk(KERN_DEBUG "ath9ktime,2,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
+		}
 	else
-		ath_tx_form_burst(sc, txq, tid, &bf_q, bf, tid_q);
+		{
+			ath_tx_form_burst(sc, txq, tid, &bf_q, bf, tid_q);
+			printampdu(&bf_q,3,tid->tidno);	
+		}
 
 	if (list_empty(&bf_q))
 		return false;
@@ -2057,11 +2129,12 @@ extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 
 	ath_dbg(common, QUEUE, "qnum: %d, txq depth: %d\n",
 		txq->axq_qnum, txq->axq_depth);
-
+	//printk(KERN_DEBUG "ath_tx_txqaddbuf qnum: %d, txq depth: %d\n",txq->axq_qnum, txq->axq_depth);
 	if (edma && list_empty(&txq->txq_fifo[txq->txq_headidx])) {
 		list_splice_tail_init(head, &txq->txq_fifo[txq->txq_headidx]);
 		INCR(txq->txq_headidx, ATH_TXFIFO_DEPTH);
 		puttxbuf = true;
+		//printk(KERN_DEBUG "ath_tx_txqaddbuf add in txq_fifo");
 	} else {
 		list_splice_tail_init(head, &txq->axq_q);
 
@@ -2070,8 +2143,12 @@ extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 			ath_dbg(common, XMIT, "link[%u] (%p)=%llx (%p)\n",
 				txq->axq_qnum, txq->axq_link,
 				ito64(bf->bf_daddr), bf->bf_desc);
+			//printk(KERN_DEBUG "ath_tx_txqaddbuf link[%u] (%p)=%llx (%p)\n",txq->axq_qnum, txq->axq_link,ito64(bf->bf_daddr), bf->bf_desc);
 		} else if (!edma)
+			{
 			puttxbuf = true;
+			//printk(KERN_DEBUG "ath_tx_txqaddbuf no edma");
+			}
 
 		txq->axq_link = bf_last->bf_desc;
 	}
@@ -2081,11 +2158,14 @@ extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 		ath9k_hw_puttxbuf(ah, txq->axq_qnum, bf->bf_daddr);
 		ath_dbg(common, XMIT, "TXDP[%u] = %llx (%p)\n",
 			txq->axq_qnum, ito64(bf->bf_daddr), bf->bf_desc);
-	}
+		//printk(KERN_DEBUG "ath_tx_txqaddbuf TXDP[%u] = %llx (%p)\n",txq->axq_qnum, ito64(bf->bf_daddr), bf->bf_desc);
+		}
+
 
 	if (!edma || sc->tx99_state) {
 		TX_STAT_INC(txq->axq_qnum, txstart);
 		ath9k_hw_txstart(ah, txq->axq_qnum);
+		//printk(KERN_DEBUG "ath_tx_txqaddbuf no edma tx99");
 	}
 
 	if (!internal) {
@@ -2120,8 +2200,21 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 	bf->bf_next = NULL;
 	bf->bf_lastbf = bf;
 	ath_tx_fill_desc(sc, bf, txq, fi->framelen);
+        //add by mengy for the normal packet aggregation
+	struct timespec tw;
+	getnstimeofday(&tw);
+       	//tw.tv_sec=1234567890;
+        //tw.tv_nsec=123456789;
+        skb->tstamp = timespec_to_ktime(tw);
+
+	//struct timespec ath9ktime;
+	//ath9ktime = timespec_sub(now,skb->t
+	
+	printk(KERN_DEBUG "ath9ktime,1,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,tw.tv_sec,tw.tv_nsec);
+	// add end 
 	ath_tx_txqaddbuf(sc, txq, &bf_head, false);
 	TX_STAT_INC(txq->axq_qnum, queued);
+	
 }
 
 static void setup_frame_info(struct ieee80211_hw *hw,
@@ -2553,7 +2646,21 @@ static void ath_tx_complete_buf(struct ath_softc *sc, struct ath_buf *bf,
 	struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(skb);
 	unsigned long flags;
 	int tx_flags = 0;
-
+	// add by mengy for the packet ack process
+	if(txok)
+	{
+        	struct timespec tw;
+        	tw = ktime_to_timespec(skb->tstamp);
+        	if(update_tw_flag==0 || timespec_compare(&tw,&this_tw) < 0)
+                {
+                        this_tw = tw;
+                        update_tw_flag=1;
+                }
+                packet_number++;
+                packet_size_all = packet_size_all + skb->len;
+                //getnstimeofday(&now);
+	}
+	// add end
 	if (!txok)
 		tx_flags |= ATH_TX_ERROR;
 
@@ -2562,6 +2669,9 @@ static void ath_tx_complete_buf(struct ath_softc *sc, struct ath_buf *bf,
 
 	dma_unmap_single(sc->dev, bf->bf_buf_addr, skb->len, DMA_TO_DEVICE);
 	bf->bf_buf_addr = 0;
+	/* one single packet ack add by mengy*/
+	printk(KERN_DEBUG "ath9k ath_tx_complete_buf ack packet at %ld.%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec);
+
 	if (sc->tx99_state)
 		goto skip_tx_complete;
 
@@ -2660,6 +2770,7 @@ static void ath_tx_processq(struct ath_softc *sc, struct ath_txq *txq)
 		txq->axq_link);
 
 	ath_txq_lock(sc, txq);
+	int count = 0;
 	for (;;) {
 		if (test_bit(ATH_OP_HW_RESET, &common->op_flags))
 			break;
@@ -2714,8 +2825,11 @@ static void ath_tx_processq(struct ath_softc *sc, struct ath_txq *txq)
 			list_del(&bf_held->list);
 			ath_tx_return_buffer(sc, bf_held);
 		}
-
+		count++;
+		//add by mengy for ath9k test
+		printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
 		ath_tx_process_buffer(sc, txq, &ts, bf, &bf_head);
+		//printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
 	}
 	ath_txq_unlock_complete(sc, txq);
 }
@@ -2742,7 +2856,10 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
 	struct list_head bf_head;
 	struct list_head *fifo_list;
 	int status;
-
+	int count = 0;//add by mengy
+	//int beacon_count = 0;//add by mengy
+	//printk(KERN_DEBUG "call ath_tx_edma_tasklet",beacon_count);
+	int get_ack_flag = 0; //flag the get ack already by mengy
 	for (;;) {
 		if (test_bit(ATH_OP_HW_RESET, &common->op_flags))
 			break;
@@ -2766,6 +2883,22 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
 			}
 
 			ath9k_csa_update(sc);
+			/*update last_ack on beacon by mengy*/
+			if(get_ack_flag==0)
+			{
+				 struct timespec now;
+  		              	 getnstimeofday(&now);
+				 last_ack = now;
+				 //this_te = now;
+				 //has_beacon_flag=1;
+				 get_ack_flag=1;
+				 last_ack_update_flag=1;
+			}
+			has_beacon_flag=1;
+			//beacon_count++;
+			//printk(KERN_DEBUG "beacon packet %d ",beacon_count);
+			//flag = 1;
+			//add end
 			continue;
 		}
 
@@ -2787,7 +2920,9 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
 			ath_tx_return_buffer(sc, bf);
 			bf = list_first_entry(fifo_list, struct ath_buf, list);
 		}
-
+		//int count = 0;
+		//count++;
+		//printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
 		lastbf = bf->bf_lastbf;
 
 		INIT_LIST_HEAD(&bf_head);
@@ -2809,10 +2944,62 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
 				list_cut_position(&bf_head, fifo_list,
 						  lastbf->list.prev);
 		}
-
+		//count++;// add by mengy
+		//printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in  ath_tx_edma_tasklet",count);//add by mengy
+		/* update lastack on one buf by mengy*/
+		if(get_ack_flag==0)
+                {
+                       struct timespec now;
+                       getnstimeofday(&now);
+                       this_ack  = now;
+		       update_te_flag = 1;
+                       //last_ack_update_flag=1;
+		       get_ack_flag=1;
+                  }
+		// add end	
 		ath_tx_process_buffer(sc, txq, &ts, bf, &bf_head);
 		ath_txq_unlock_complete(sc, txq);
 	}
+	if (!has_beacon_flag)
+	{
+		if(update_te_flag == 0)
+		{
+			printk(KERN_DEBUG "ath9k error the te is not update this time");
+			return;
+		}
+		if(update_tw_flag == 0)
+		{
+			printk(KERN_DEBUG "ath9k error the tw is not update this time");
+			return;
+		}
+		if(last_ack_update_flag == 0)
+		{
+			printk(KERN_DEBUG "ath9k error the last_ack is not update before");
+			return;
+		}
+		struct timespec th;
+		if(timespec_compare(&last_ack,&this_tw)<0)
+			th = this_tw;
+		else
+			th = last_ack;	
+		struct timespec p_delay = timespec_sub(this_ack,th);
+		struct timespec all_delay = timespec_sub(this_ack,this_tw);
+		update_deqrate(p_delay.tv_sec,p_delay.tv_nsec,all_delay.tv_sec, all_delay.tv_nsec,packet_size_all,packet_number);
+		last_ack_update_flag = 0;
+	}
+		last_ack=this_ack;
+		last_ack_update_flag = 1;
+		update_te_flag = 0;
+		update_tw_flag = 0;
+		has_beacon_flag = 0;
+		packet_number = 0;
+		packet_size_all = 0;
+		this_ack.tv_sec =0;
+		this_ack.tv_nsec = 0;
+		this_tw.tv_sec = 0;
+		this_tw.tv_nsec = 0;
+	
+		
 }
 
 /*****************/

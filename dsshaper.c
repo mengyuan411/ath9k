@@ -16,6 +16,15 @@
 #include <linux/dma-mapping.h>
 #include "ath9k.h"
 #include "ar9003_mac.h"
+struct timespec last_ack={0}; // for the last packet ack by mengy
+int update_te_flag = 0;
+int update_tw_flag = 0;
+int has_beacon_flag = 0;
+int packet_number = 0;
+int packet_size_all = 0;
+int last_ack_update_flag = 0;
+struct timespec this_ack = {0};
+struct timespec this_tw = {0};
 
 /*
 void DSShaperHandler::handle(Event *e)
@@ -286,6 +295,12 @@ extern void update_bucket_contents()
 
 
 }
+
+void update_deqrate(int pdelay_sec,int pdelay_nsec, int alldelay_sec,int alldelay_nsec, int pktsize_, int pnumber_)
+{
+	printk(KERN_DEBUG "pdelay:%ld.%ld,alldelay_:%ld.%ld,pktsize_:%ld,pnumber_:%ld\n",pdelay_sec,pdelay_nsec,alldelay_sec,alldelay_nsec,pktsize_,pnumber_);
+}
+
 
 /*
 int DSShaper::command(int argc, const char* const*argv)

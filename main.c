@@ -82,6 +82,7 @@ u8 ath9k_parse_mpdudensity(u8 mpdudensity)
 	}
 }
 /*add by mengy*/
+/*
 void update_deqrate(struct timespec  pdelay_, struct timespec alldelay_, int pktsize_);
 
 void update_deqrate(struct timespec  pdelay_, struct timespec alldelay_, int pktsize_){
@@ -844,7 +845,9 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		     struct ieee80211_tx_control *control,
 		     struct sk_buff *skb)
 {
+	
 	/*add by mengy*/
+	/*
 	if(first_flag_==0){
 		getnstimeofday(&checktime_);
 		getnstimeofday(&checkThtime_);
@@ -864,6 +867,7 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		return;
 			
 	}
+	*/
 	/*add end by mengy*/
 
 	struct ath_softc *sc = hw->priv;
@@ -872,8 +876,12 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
 	unsigned long flags;
 		
+	/* add here for ath9k time test by mengy*/	
+	struct timespec ts;
+        getnstimeofday(&ts);
+        skb->tstamp = timespec_to_ktime(ts);
+	/*add end*/
 	
-
 	if (sc->ps_enabled) {
 		/*
 		 * mac80211 does not set PM field for normal data frames, so we

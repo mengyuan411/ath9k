@@ -51,8 +51,15 @@
 //extern int ath9k_led_blink;
 //extern bool is_ath9k_unloaded;
 //extern int ath9k_use_chanctx;
-
-
+extern struct timespec last_ack; // record the last ack timestamp by mengy 
+extern int update_te_flag;
+extern int update_tw_flag;
+extern int has_beacon_flag;
+extern int packet_number;
+extern int packet_size_all;
+extern struct timespec this_ack;
+extern struct timespec this_tw;
+extern int last_ack_update_flag;
 #ifndef ATH9K_DSSHAPPER_H
 #define ATH9K_DSSHAPPER_H
 
@@ -99,6 +106,7 @@ public:
 	int         max_queue_length;
 } ;
 */
+extern void update_deqrate(int pdelay_sec,int pdelay_nsec, int alldelay_sec,int alldelay_nsec, int pktsize_, int pnumber_);
 //bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 //int list_length(struct list_head *head);
 //int timer_module(double time_delay,struct timer_list *my_timer);
