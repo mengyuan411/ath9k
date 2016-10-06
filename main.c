@@ -21,26 +21,27 @@
 #include <linux/time.h>
 //#include "dsshaper.h"
 /*add by mengy*/
-int first_flag_=0;  /*used to set the global parameters*/
-int ntrans_ = 0;	
+//int first_flag_=0;  /*used to set the global parameters*/
+//int ntrans_ = 0;	
 //double delay_optimal_=;  /*some global config, which should be configed by the tcl command*/
-struct timespec delay_sum_={0};
-int delay_avg_= 0;
-int pktsize_sum_ = 0;
-struct timespec checktime_;
-struct timespec checkThtime_;
-int throughput_sum_ = 0;
-struct timespec checkInterval_ = {0,5000000};//ns
-struct timespec checkThInterval_ = {1,0};
-int alpha_ = 0; //%
-int rate_avg_ = 0;
-int switchOn_ = 1;
-int delay_optimal_ = 2000;//us
-int beta_ = 100000;
-int deltaIncrease_ = 1000000;
-int fix_peak = 80000000;
-int flow_peak = 80000000;
-extern void update_bucket_contents(void);
+//struct timespec delay_sum_={0};
+//int delay_avg_= 0;
+//int pktsize_sum_ = 0;
+//struct timespec checktime_;
+//struct timespec checkThtime_;
+//int throughput_sum_ = 0;
+//struct timespec checkInterval_ = {0,5000000};//ns
+//struct timespec checkThInterval_ = {1,0};
+//int alpha_ = 0; //%
+//int rate_avg_ = 0;
+//int switchOn_ = 1;
+//int delay_optimal_ = 2000;//us
+//int beta_ = 100000;
+//int deltaIncrease_ = 1000000;
+//int fix_peak = 80000000;
+//int flow_peak = 80000000;
+
+//extern void update_bucket_contents(void);
 	
 //double delay_avg_; /*used to store the average delay*/
 
@@ -2785,5 +2786,6 @@ struct ieee80211_ops ath9k_ops = {
 	.sw_scan_complete   = ath9k_sw_scan_complete,
 	.get_txpower        = ath9k_get_txpower,
 };
+
 
 

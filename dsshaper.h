@@ -51,6 +51,7 @@
 //extern int ath9k_led_blink;
 //extern bool is_ath9k_unloaded;
 //extern int ath9k_use_chanctx;
+/*for timestamp te th tw by mengy*/
 extern struct timespec last_ack; // record the last ack timestamp by mengy 
 extern int update_te_flag;
 extern int update_tw_flag;
@@ -60,6 +61,30 @@ extern int packet_size_all;
 extern struct timespec this_ack;
 extern struct timespec this_tw;
 extern int last_ack_update_flag;
+
+
+/*for update_deqrate*/
+extern int flow_peak; //for the control peak 
+extern int ntrans_; // record the flow_peak change times
+extern struct timespec delay_sum_;
+extern int pktsize_sum_; //bit
+extern struct timespec checkInterval_;
+extern struct timespec checktime_; //last time update peak
+extern int alpha_; //%
+extern int rate_avg_; // bits/s
+extern int delay_avg_; //us
+extern int switchOn_ ;
+extern int delay_optimal_;//us
+extern int fix_peak ; //bits/s
+extern int flow_peak ; // bits/s
+///int beta_ ; //bits/s
+//int burst_size_; //bits
+//int deltaIncrease_ ; //bits/s
+//struct timespec checkThtime_;
+//struct timespec checkThInterval_;
+//int throughput_sum_;
+//struct timespec checkThtime_;
+
 #ifndef ATH9K_DSSHAPPER_H
 #define ATH9K_DSSHAPPER_H
 
@@ -106,7 +131,8 @@ public:
 	int         max_queue_length;
 } ;
 */
-extern void update_deqrate(int pdelay_sec,int pdelay_nsec, int alldelay_sec,int alldelay_nsec, int pktsize_, int pnumber_);
+extern void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsize_, int pnumber_);
+extern void update_bucket_contents(void);
 //bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 //int list_length(struct list_head *head);
 //int timer_module(double time_delay,struct timer_list *my_timer);
@@ -133,7 +159,7 @@ struct DSShaper {
 	int		dropped_packets ;
 	int		curr_bucket_contents ;
 	int		flow_id_;
-	struct timespec      last_time ;
+	struct timespec      last_time ; // last time update bucket contents
 	//int		peak_ ;
 	int		burst_size_ ;
 	int         max_queue_length;
@@ -169,4 +195,5 @@ struct packet_msg
 
 //struct timer_list a_timer;
 #endif
+
 

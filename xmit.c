@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2008-2011 Atheros Communications Inc.
+/*opyright (c) 2008-2011 Atheros Communications Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -93,7 +92,7 @@ void printampdu(struct list_head *head,int type, u8 tidno){
 		count++;
 		bf = list_entry(bf_q, struct ath_buf, list);
 		skb = bf->bf_mpdu;
-		printk(KERN_DEBUG "ath9ktime,%d,%d,%ld,%ld,%ld,%ld\n",type,count,ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
+		//printk(KERN_DEBUG "ath9ktime,%d,%d,%ld,%ld,%ld,%ld\n",type,count,ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
 		bf_q = bf_q -> next;
 		//bf = bf_first
 	//while
@@ -511,7 +510,7 @@ static void ath_tx_complete_aggr(struct ath_softc *sc, struct ath_txq *txq,
 
 			if (!bf->bf_state.stale || bf_next != NULL)
 				list_move_tail(&bf->list, &bf_head);
-			printk(KERN_DEBUG "anomaly call ath_tx_complete_buf in ath_tx_complete_aggr"); //test by mengy
+			//printk(KERN_DEBUG "anomaly call ath_tx_complete_buf in ath_tx_complete_aggr"); //test by mengy
 			ath_tx_complete_buf(sc, bf, txq, &bf_head, ts, 0);
 
 			bf = bf_next;
@@ -746,7 +745,7 @@ static void ath_tx_process_buffer(struct ath_softc *sc, struct ath_txq *txq,
 			ath_tx_rc_status(sc, bf, ts, 1, txok ? 0 : 1, txok);
 			ath_dynack_sample_tx_ts(sc->sc_ah, bf->bf_mpdu, ts);
 		}
-		printk(KERN_DEBUG "ath9kack,mpdu,%d,%d\n",tt.tv_sec,tt.tv_nsec);
+		//printk(KERN_DEBUG "ath9kack,mpdu,%d,%d\n",tt.tv_sec,tt.tv_nsec);
 		ath_tx_complete_buf(sc, bf, txq, bf_head, ts, txok);
 		//printk(KERN_DEBUG "ath9kack,1,%d,%d\n",ts.tv_sec,ts.tv_nsec); //mengy
 		
@@ -2210,7 +2209,7 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 	//struct timespec ath9ktime;
 	//ath9ktime = timespec_sub(now,skb->t
 	
-	printk(KERN_DEBUG "ath9ktime,1,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,tw.tv_sec,tw.tv_nsec);
+	//printk(KERN_DEBUG "ath9ktime,1,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,tw.tv_sec,tw.tv_nsec);
 	// add end 
 	ath_tx_txqaddbuf(sc, txq, &bf_head, false);
 	TX_STAT_INC(txq->axq_qnum, queued);
@@ -2670,7 +2669,7 @@ static void ath_tx_complete_buf(struct ath_softc *sc, struct ath_buf *bf,
 	dma_unmap_single(sc->dev, bf->bf_buf_addr, skb->len, DMA_TO_DEVICE);
 	bf->bf_buf_addr = 0;
 	/* one single packet ack add by mengy*/
-	printk(KERN_DEBUG "ath9k ath_tx_complete_buf ack packet at %ld.%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec);
+	//printk(KERN_DEBUG "ath9k ath_tx_complete_buf ack packet at %ld.%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec);
 
 	if (sc->tx99_state)
 		goto skip_tx_complete;
@@ -2827,7 +2826,7 @@ static void ath_tx_processq(struct ath_softc *sc, struct ath_txq *txq)
 		}
 		count++;
 		//add by mengy for ath9k test
-		printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
+		//printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
 		ath_tx_process_buffer(sc, txq, &ts, bf, &bf_head);
 		//printk(KERN_DEBUG "ath9kack %d call ath_tx_process_buffer in ath_tx_complete_aggr",count);
 	}
@@ -2984,7 +2983,7 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
 			th = last_ack;	
 		struct timespec p_delay = timespec_sub(this_ack,th);
 		struct timespec all_delay = timespec_sub(this_ack,this_tw);
-		update_deqrate(p_delay.tv_sec,p_delay.tv_nsec,all_delay.tv_sec, all_delay.tv_nsec,packet_size_all,packet_number);
+		update_deqrate(p_delay,all_delay,packet_size_all,packet_number);
 		last_ack_update_flag = 0;
 	}
 		last_ack=this_ack;
@@ -3173,3 +3172,4 @@ int ath9k_tx99_send(struct ath_softc *sc, struct sk_buff *skb,
 }
 
 #endif /* CPTCFG_ATH9K_TX99 */
+

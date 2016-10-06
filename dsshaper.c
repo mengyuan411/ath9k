@@ -16,6 +16,7 @@
 #include <linux/dma-mapping.h>
 #include "ath9k.h"
 #include "ar9003_mac.h"
+/*for timestamp te th tw by mengy*/
 struct timespec last_ack={0}; // for the last packet ack by mengy
 int update_te_flag = 0;
 int update_tw_flag = 0;
@@ -25,6 +26,28 @@ int packet_size_all = 0;
 int last_ack_update_flag = 0;
 struct timespec this_ack = {0};
 struct timespec this_tw = {0};
+
+
+/*for update_deqrate*/
+//int flow_peak = 80000000;
+int ntrans_ = 0;
+struct timespec delay_sum_ = {0};
+int pktsize_sum_ = 0;
+struct timespec checkInterval_ = {0,5000000};
+struct timespec checktime_;
+int throughput_sum_ = 0;
+int alpha_ = 0; //%
+int rate_avg_ = 0; //bits/s
+int delay_avg_ = 0;
+int switchOn_ = 1;
+int delay_optimal_ = 2000;//us
+int fix_peak = 80000000; //bits/s
+int flow_peak = 80000000; // bits/s
+int beta_ = 100000; //bits/s
+int burst_size_ = 80000;// bits
+int deltaIncrease_ = 1000000; //bits/s
+struct timespec checkThInterval_ = {1,0};
+struct timespec checkThtime_ = {0};
 
 /*
 void DSShaperHandler::handle(Event *e)
@@ -65,7 +88,7 @@ bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq 
 void schedule_packet(struct list_head *p,int len);
 void resume(void);
 bool in_profile(int size);
-extern void update_bucket_contents(void);
+void update_bucket_contents(void);
 extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
                            struct list_head *head, bool internal);
 struct DSShaper dsshaper_my = { 0,0,0,0,0,0,{0,0},80000,30};
@@ -273,7 +296,7 @@ bool in_profile(int size)
 	}
 }
 
-extern void update_bucket_contents()
+void update_bucket_contents()
 {
 //      I'm using the token bucket implemented by Sean Murphy
         
@@ -286,7 +309,7 @@ extern void update_bucket_contents()
 	struct timespec tmp_sub = timespec_sub(current_time,dsshaper_my.last_time);
 
 	
-	int added_bits = (int) (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000) * flow_peak / 1000 ; //unsettled
+	int added_bits = (int) (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000) * flow_peak / 1000000; 
 
 	dsshaper_my.curr_bucket_contents += (int) (added_bits * 10  + 5) /10 ;
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
@@ -296,9 +319,67 @@ extern void update_bucket_contents()
 
 }
 
-void update_deqrate(int pdelay_sec,int pdelay_nsec, int alldelay_sec,int alldelay_nsec, int pktsize_, int pnumber_)
+void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsize_, int pnumber_)
 {
-	printk(KERN_DEBUG "pdelay:%ld.%ld,alldelay_:%ld.%ld,pktsize_:%ld,pnumber_:%ld\n",pdelay_sec,pdelay_nsec,alldelay_sec,alldelay_nsec,pktsize_,pnumber_);
+	//printk(KERN_DEBUG "pdelay:%ld.%ld,alldelay_:%ld.%ld,pktsize_:%ld,pnumber_:%ld\n",pdelay_sec,pdelay_nsec,alldelay_sec,alldelay_nsec,pktsize_,pnumber_);
+	struct timespec now_;
+	getnstimeofday(&now_);
+	//double now_ = Scheduler::instance().clock();
+	printk(KERN_DEBUG "[mengy][update_deqrate entrance][time=%ld.%ld][p_delay=%ld.%ld][all_delay=%ld.%ld][pktsize_=%d bite][pktnumber_=%d]\n",now_.tv_sec,now_.tv_nsec,p_delay.tv_sec,p_delay.tv_nsec,all_delay.tv_sec,all_delay.tv_nsec,pktsize_*8,pnumber_);
+	
+	
+
+
+	int pri_peak_ = flow_peak;
+	ntrans_ = ntrans_ + pnumber_;
+	//delay_sum_ += pdelay_;
+	delay_sum_ = timespec_add(delay_sum_,p_delay);
+	pktsize_sum_ += pktsize_*8;
+
+	struct timespec tmp_sub = timespec_sub(now_, checktime_); // unsettled checktime_
+	if( timespec_compare(&tmp_sub,&checkInterval_) >0 ){
+		int delay_instant_ = (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec/1000)/ntrans_; //us
+		delay_avg_ = alpha_ * delay_avg_  / 100 + ( 100 - alpha_) * delay_instant_/100;//us
+		
+		
+		
+		rate_avg_ = pktsize_sum_ / (int) (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec / 1000) ; //bits/us
+		if (switchOn_)
+		{
+			if( delay_avg_ > delay_optimal_ )
+			{
+				update_bucket_contents();
+				flow_peak = delay_optimal_ * pri_peak_ / delay_avg_; //unsettled
+				if (flow_peak  < beta_)
+					flow_peak = beta_;
+			}else{
+				update_bucket_contents();
+				flow_peak =  pri_peak_ + deltaIncrease_;
+				if (flow_peak  > rate_avg_ * 1000000)
+					flow_peak = rate_avg_ * 1000000;
+			}
+		}else{
+			flow_peak = fix_peak; //fixed rate 
+		}
+		ntrans_ = 0;
+		pktsize_sum_ = 0;
+		delay_sum_.tv_sec = 0;
+		delay_sum_.tv_nsec = 0;
+		checktime_ = now_;
+		
+	}	
+	printk(KERN_DEBUG "[mengy][update_deqrate after peak ][time=%ld.%ld][rate=%ld][delay_avg=%ld][pri_peak=%ld][now_peak_=%ld]\n",now_.tv_sec,now_.tv_nsec,rate_avg_,delay_avg_,pri_peak_,flow_peak);
+	
+	
+	
+	throughput_sum_ += pktsize_;
+	tmp_sub = timespec_sub(now_,checkThtime_);
+	if(  timespec_compare(&tmp_sub,&checkThInterval_)>0 ){
+		int throughput_avg_ = ( 8 * throughput_sum_ )/((int) (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000 )) * 1000;
+		printk(KERN_DEBUG "[mengy][update_deqrate throughput][time=%ld.%ld][bytes=%ld][throughput=%ld Kbps]\n",now_.tv_sec,now_.tv_nsec,throughput_sum_,throughput_avg_);
+		throughput_sum_ = 0;
+		checkThtime_ = now_;
+	}
 }
 
 
@@ -359,5 +440,6 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
 
 
