@@ -56,7 +56,7 @@ static void ath_tx_complete_buf(struct ath_softc *sc, struct ath_buf *bf,
 				struct ath_tx_status *ts, int txok);
 //static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 //			     struct list_head *head, bool internal);
-extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
+void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
                            struct list_head *head, bool internal); // changed by my
 static void ath_tx_rc_status(struct ath_softc *sc, struct ath_buf *bf,
 			     struct ath_tx_status *ts, int nframes, int nbad,
@@ -1472,24 +1472,24 @@ static void ath_tx_fill_desc(struct ath_softc *sc, struct ath_buf *bf,
 		bf = bf->bf_next;
 	}
 }
-
+/* for the burst packet length changed by mengy*/
 static void
 ath_tx_form_burst(struct ath_softc *sc, struct ath_txq *txq,
 		  struct ath_atx_tid *tid, struct list_head *bf_q,
-		  struct ath_buf *bf_first, struct sk_buff_head *tid_q)
+		  struct ath_buf *bf_first, struct sk_buff_head *tid_q, int *burst_len)
 {
 	struct ath_buf *bf = bf_first, *bf_prev = NULL;
 	struct sk_buff *skb;
 	int nframes = 0;
-
+	int len_sum = 0;
 	do {
 		struct ieee80211_tx_info *tx_info;
 		skb = bf->bf_mpdu;
 		// add by mengy for the tw timestamp
                 struct timespec tw;
                 getnstimeofday(&tw);
-                tw.tv_sec=1234567890;
-                tw.tv_nsec=123456789;
+                //tw.tv_sec=1234567890;
+                //tw.tv_nsec=123456789;
                 skb->tstamp = timespec_to_ktime(tw);
                 // add end by mengy
 
@@ -1499,6 +1499,8 @@ ath_tx_form_burst(struct ath_softc *sc, struct ath_txq *txq,
 		if (bf_prev)
 			bf_prev->bf_next = bf;
 		bf_prev = bf;
+
+		len_sum = len_sum + skb->len;
 
 		if (nframes >= 2)
 			break;
@@ -1513,8 +1515,10 @@ ath_tx_form_burst(struct ath_softc *sc, struct ath_txq *txq,
 
 		ath_set_rates(tid->an->vif, tid->an->sta, bf);
 	} while (1);
+	*burst_len = len_sum;
 }
 
+/* change for the burst and the ath_tx_txqaddbuf*/
 static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 			      struct ath_atx_tid *tid, bool *stop)
 {
@@ -1523,6 +1527,8 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	struct sk_buff_head *tid_q;
 	struct list_head bf_q;
 	int aggr_len = 0;
+	int burst_len = 0; // add by mengy
+	int pkt_type = 0; //add by mengy
 	bool aggr, last = true;
 
 	if (!ath_tid_has_buffered(tid))
@@ -1547,12 +1553,14 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 		{
 			last = ath_tx_form_aggr(sc, txq, tid, &bf_q, bf,
 					tid_q, &aggr_len);
+			pkt_type = 1;
 			printampdu(&bf_q,2,tid->tidno);//add by mengy
 			//printk(KERN_DEBUG "ath9ktime,2,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,now.tv_sec,now.tv_nsec);
 		}
 	else
 		{
-			ath_tx_form_burst(sc, txq, tid, &bf_q, bf, tid_q);
+			ath_tx_form_burst(sc, txq, tid, &bf_q, bf, tid_q,&burst_len);
+			pkt_type = 2;
 			printampdu(&bf_q,3,tid->tidno);	
 		}
 
@@ -1565,8 +1573,11 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	}
 
 	ath_tx_fill_desc(sc, bf, txq, aggr_len);
-	//recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
-	ath_tx_txqaddbuf(sc, txq, &bf_q, false);
+	if(pkt_type == 1)
+		recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
+	else
+		recv(burst_len, sc, txq, &bf_q, false);// add by mengy
+	//ath_tx_txqaddbuf(sc, txq, &bf_q, false);
 	return true;
 }
 
@@ -3172,4 +3183,5 @@ int ath9k_tx99_send(struct ath_softc *sc, struct sk_buff *skb,
 }
 
 #endif /* CPTCFG_ATH9K_TX99 */
+
 

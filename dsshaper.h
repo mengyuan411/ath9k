@@ -28,6 +28,7 @@
 //#include <linux/hw_random.h>
 #include <net/mac80211.h>
 #include <linux/types.h>
+#include "ath9k.h"
 //#include <include/linux/list.h>
 
 //#include "common.h"
@@ -136,7 +137,8 @@ extern void update_bucket_contents(void);
 //bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 //int list_length(struct list_head *head);
 //int timer_module(double time_delay,struct timer_list *my_timer);
-//extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+extern void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* p, bool internal);
+extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,struct list_head *head, bool internal); // changed by my
 //bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 //void schedule_packet(struct list_head *p,int len);
 //void resume(void);
@@ -195,5 +197,6 @@ struct packet_msg
 
 //struct timer_list a_timer;
 #endif
+
 
 

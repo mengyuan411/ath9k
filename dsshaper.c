@@ -49,49 +49,22 @@ int deltaIncrease_ = 1000000; //bits/s
 struct timespec checkThInterval_ = {1,0};
 struct timespec checkThtime_ = {0};
 
-/*
-void DSShaperHandler::handle(Event *e)
-{
-	shaper_->resume();
-}*/
 
-
-/*
-static class DSShaperTclClass : public TclClass {
-public:
-	DSShaperTclClass() : TclClass("DSShaper") {}
-	TclObject* create(int, const char*const*) {
-                return (new DSShaper);
-        }
-} class_dsshaper ;
-*/
-
-/*
-DSShaper::DSShaper() : Connector(), 
-			   received_packets(0),
-			   sent_packets(0),
-			   shaped_packets(0),
-			   dropped_packets(0),
-			   max_queue_length(0),
-			   flow_id_(0),
-			   last_time(0),
-                       sh_(this)
-{
-
-}
-*/
 //extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
 int list_length(struct list_head *head);
-int timer_module(int time_delay,struct timer_list *my_timer);
-//extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
+int timer_module(int time_delay,struct timer_list *my_timer); // time_delay(ms)
+void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal);
 bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len);
 void schedule_packet(struct list_head *p,int len);
 void resume(void);
 bool in_profile(int size);
 void update_bucket_contents(void);
-extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
-                           struct list_head *head, bool internal);
+//extern void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
+  //                         struct list_head *head, bool internal);
 struct DSShaper dsshaper_my = { 0,0,0,0,0,0,{0,0},80000,30};
+int init_flag = 0; //for the initialize
+struct list_head shape_queue; //for the packet queue
+struct list_head shape_queue_msg; // for the packet queue msg
 //extern int flow_peak=11;
 //dsshaper_my=(struct DSShaper*)malloc(sizeof(struct DSShaper));
 //dsshaper_my->received_packets=0;
@@ -102,10 +75,10 @@ struct DSShaper dsshaper_my = { 0,0,0,0,0,0,{0,0},80000,30};
 //dsshaper_my->flow_id_=0;
 //dsshaper_my->last_time=0;
 //dsshaper_my->burst_size_=1;
-struct list_head shape_queue;
-int init_flag = 0;
+
+
 //INIT_LIST_HEAD(shape_queue);
-struct list_head shape_queue_msg;
+
 //INIT_LIST_HEAD(shape_queue_msg);
 //&a_dsshaper->shape_queue=NULL;
 
@@ -144,29 +117,35 @@ int timer_module(int time_delay,struct timer_list *my_timer)
   return 0;
 }
 
-
-extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list_head *p, bool internal)
+void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* p, bool internal)
 {
 
+	//unsettled the agg length
+
 	//struct hdr_cmn *hdr = hdr_cmn::access(p); // unsettled
-	//printf("[changhua pei][TC-recv   ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
+	printk(KERN_DEBUG "[mengy][recv]recv the packet length:%ld\n",len);
 	if(init_flag == 0){
 		INIT_LIST_HEAD(&shape_queue);
 		INIT_LIST_HEAD(&shape_queue_msg);
 		init_flag=1;
 	}				
 	dsshaper_my.received_packets++;
-
+	printk(KERN_DEBUG "[mengy][recv]sent the packet length:%ld\n",len);
+        ath_tx_txqaddbuf(sc, txq, p, internal);
+	return;
 	if (list_empty(&shape_queue)) {
 //          There are no packets being shapped. Tests profile.
 	    if (in_profile(len)) {
  	        dsshaper_my.sent_packets++;
+ 	        printk(KERN_DEBUG "[mengy][recv]sent the packet length:%ld\n",len);
  	        ath_tx_txqaddbuf(sc, txq, p, internal);
-	        //target_->recv(p,h);   //unsettled why call this here? 
-	    } else {
-	        if (shape_packet(p,sc,txq,internal,len))   
+	    } else{
+				
+				if(shape_packet(p,sc,txq,internal,len)) { 
 				//printf("[changhua pei][TC-recv0  ][%d->%d][id=%d][puid_=%d][schedule until the packet is sent out!]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_, p->uid_);			
-           	    schedule_packet(p,len);
+           		  schedule_packet(p,len);
+
+           		}
 //           	else
 //                  Shaper is being used as a dropper
             } 
@@ -179,9 +158,10 @@ extern void recv(int len, struct ath_softc *sc, struct ath_txq *txq, struct list
 bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq *txq,bool internal,int len)
 {
         if (list_length(&shape_queue) >= dsshaper_my.max_queue_length) {
-	    //drop (p);// unsettled how to drop?
-	    dsshaper_my.dropped_packets++;
-	    return false;
+			//drop (p);// unsettled how to drop?
+			printk(KERN_DEBUG "[mengy][shape_packet]shape the packet fails length:%ld\n",len);
+			dsshaper_my.dropped_packets++;
+			return false;
         } 
         //shape_queue.enque(p);
         list_add_tail(packet,&shape_queue);
@@ -197,7 +177,7 @@ bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq 
 
 
         dsshaper_my.shaped_packets++;
-		
+		printk(KERN_DEBUG "[mengy][shape_packet]shape the packet success length:%ld\n",len);
 		//struct hdr_cmn *hdr = hdr_cmn::access(p);
 		//printf("[changhua pei][TC-enque  ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
 
@@ -210,11 +190,12 @@ void schedule_packet(struct list_head *p,int len)
 //      calculate time to wake up	
 		struct timer_list my_timer;          
         //int packetsize = hdr_cmn::access(p)->size_ * 8 ;
-        int delay = (int) (len - dsshaper_my.curr_bucket_contents) * 1000 /flow_peak; //ms
+        int delay = (int) (len * 8 - dsshaper_my.curr_bucket_contents) * 1000 /flow_peak; //ms
         //double delay  = 1500.0*8.0*0.000001/11; //use msec unsettled where is length?
 
 		//Scheduler& s = Scheduler::instance();
 	    //s.schedule(&sh_, p, delay);
+	    printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet time:%ld ms length:%ld\n",delay,len);
 	    timer_module(delay,&my_timer);
 }
 
@@ -236,10 +217,10 @@ void resume()
         lh = (&shape_queue_msg)->next;
        // struct packet_msg *msg;
         msg = list_entry(lh,struct packet_msg,list);
-		list_del(p);
-		list_del(lh);
+		printk(KERN_DEBUG "[mengy][resume]resume the packet length:%ld\n",msg->len);
+
 	}else{
-		printk(KERN_DEBUG "[changhua pei][Error     ][the queue is empty!]\n");
+		printk(KERN_DEBUG "[mengy][Error     ][the queue is empty!]\n");
 		return;
 	}
 
@@ -248,12 +229,17 @@ void resume()
 	
 	if (in_profile(msg->len)) {
             dsshaper_my.sent_packets++;
+            printk(KERN_DEBUG "[mengy][resume]resume and sent the packet length:%ld\n",msg->len);
             ath_tx_txqaddbuf(msg->sc, msg->txq, p, msg->internal);
+            list_del(p);
+			list_del(lh);
             //target_->recv(p,(Handler*) NULL);  //unsettled why recv? 
 
 	} else {
 		//printf("[changhua pei][TC-resume0][%d->%d][id=%d][puid_=%d][schedule until the packet is sent out!]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_, p->uid_);
+        printk(KERN_DEBUG "[mengy][resume]resume and schedule the packet length:%ld\n",msg->len);
         schedule_packet(p,msg->len);
+
 		return;
 	} 
 
@@ -264,9 +250,10 @@ void resume()
 		    * quickly sent out
 			*/
 		   //Scheduler& s = Scheduler::instance();
-		   //s.schedule(&sh_, first_p, 0);   
-	struct timer_list my_timer;  
-	timer_module(1,&my_timer);      
+		   //s.schedule(&sh_, first_p, 0);
+		printk(KERN_DEBUG "[mengy][resume]sent success and schedule again\n");   
+		struct timer_list my_timer;  
+		timer_module(1,&my_timer);      
     }   
 } 
 
@@ -440,6 +427,7 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
 
 
 
