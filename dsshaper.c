@@ -131,8 +131,35 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	}				
 	dsshaper_my.received_packets++;
 	printk(KERN_DEBUG "[mengy][recv]sent the packet length:%ld\n",len);
-        ath_tx_txqaddbuf(sc, txq, p, internal);
+	/*just for debug*/
+	int profile_result = in_profile(len);
+	printk(KERN_DEBUG "[mengy][recv]profile_result:%ld\n",profile_result);
+        
+	list_add_tail(p,&shape_queue);
+	ath_tx_txqaddbuf(sc, txq, p, internal);
+	list_del(p);
+	/*
+	struct packet_msg *msg;
+        INIT_LIST_HEAD(&msg->list);//unsettled 
+        msg->sc = sc;
+        msg->txq = txq;
+        msg->internal = internal;
+        msg->len = len;
+        list_add_tail(&msg->list,&shape_queue_msg);
+	ath_tx_txqaddbuf(sc, txq, p, internal);
+	
+	struct list_head *p_test;
+	struct list_head *lh_test;
+	struct packet_msg *msg_test;
+	p_test = (&shape_queue)->next;
+        lh_test = (&shape_queue_msg)->next;
+	msg_test = list_entry(lh_test,struct packet_msg,list);
+	//ath_tx_txqaddbuf(sc, txq, p, internal);
+	ath_tx_txqaddbuf(msg_test->sc, msg_test->txq, p_test, msg_test->internal);
+	list_del(p_test);
+	list_del(lh_test);*/
 	return;
+	/*debug end*/
 	if (list_empty(&shape_queue)) {
 //          There are no packets being shapped. Tests profile.
 	    if (in_profile(len)) {
@@ -274,7 +301,7 @@ bool in_profile(int size)
 		   //hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(), \
 		   //curr_bucket_contents,packetsize,peak_,burst_size_);
 	
-	
+	printk(KERN_DEBUG "[mengy][in_profile] packetsize:%ld,curr_bucket:%ld",packetsize,dsshaper_my.curr_bucket_contents);	
 	if (packetsize > dsshaper_my.curr_bucket_contents)
 		return false;
 	else {
@@ -301,6 +328,8 @@ void update_bucket_contents()
 	dsshaper_my.curr_bucket_contents += (int) (added_bits * 10  + 5) /10 ;
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
 		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ; //unsettled how to update burst_size
+	
+	printk(KERN_DEBUG "[mengy][update_bucket_contents] curr_bucket:%ld,add bits:%ld",dsshaper_my.curr_bucket_contents,added_bits);	
 	dsshaper_my.last_time = current_time ;
 
 
