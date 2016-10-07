@@ -37,7 +37,7 @@ extern int ath9k_modparam_nohwcrypt;
 extern int ath9k_led_blink;
 extern bool is_ath9k_unloaded;
 extern int ath9k_use_chanctx;
-extern int flow_peak; //add by mengy
+//extern int flow_peak; //add by mengy
 /*************************/
 /* Descriptor Management */
 /*************************/

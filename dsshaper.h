@@ -25,6 +25,8 @@
 //#include <linux/time.h>
 #include <linux/timer.h> //for timer mengy
 #include <linux/time.h>
+#include <linux/types.h>
+#include <linux/math64.h>
 //#include <linux/hw_random.h>
 #include <net/mac80211.h>
 #include <linux/types.h>
@@ -65,19 +67,19 @@ extern int last_ack_update_flag;
 
 
 /*for update_deqrate*/
-extern int flow_peak; //for the control peak 
+extern u64 flow_peak; //for the control peak 
 extern int ntrans_; // record the flow_peak change times
 extern struct timespec delay_sum_;
 extern int pktsize_sum_; //bit
 extern struct timespec checkInterval_;
 extern struct timespec checktime_; //last time update peak
 extern int alpha_; //%
-extern int rate_avg_; // bits/s
+extern u64 rate_avg_; // bits/s
 extern int delay_avg_; //us
 extern int switchOn_ ;
-extern int delay_optimal_;//us
-extern int fix_peak ; //bits/s
-extern int flow_peak ; // bits/s
+extern u64 delay_optimal_;//us
+extern u64 fix_peak ; //bits/s
+extern u64 flow_peak ; // bits/s
 ///int beta_ ; //bits/s
 //int burst_size_; //bits
 //int deltaIncrease_ ; //bits/s
@@ -159,7 +161,7 @@ struct DSShaper {
 	int		sent_packets ;
 	int		shaped_packets ;
 	int		dropped_packets ;
-	int		curr_bucket_contents ;
+	u64		curr_bucket_contents ;
 	int		flow_id_;
 	struct timespec      last_time ; // last time update bucket contents
 	//int		peak_ ;
@@ -176,6 +178,14 @@ struct packet_msg
 	struct ath_txq *txq;
 	bool internal;
 	int len;
+
+
+};
+struct packet_dsshaper
+{
+	/* data */
+	struct list_head list;
+	struct list_head* packet;
 
 
 };
@@ -197,6 +207,7 @@ struct packet_msg
 
 //struct timer_list a_timer;
 #endif
+
 
 
 
