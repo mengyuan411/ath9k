@@ -38,15 +38,15 @@ struct timespec checkInterval_ = {0,5000000};
 struct timespec checktime_;
 int throughput_sum_ = 0;
 int alpha_ = 0; //%
-u64 rate_avg_ = 0; //bits/s
+int rate_avg_ = 0; //bits/s
 int delay_avg_ = 0;
 int switchOn_ = 1;
-u64 delay_optimal_ = 2000;//us
-u64 fix_peak = 80000000; //bits/s
-u64 flow_peak = 80000000; // bits/s
-u64 beta_ = 100000; //bits/s
-u64 burst_size_ = 80000;// bits
-u64 deltaIncrease_ = 1000000; //bits/s
+int delay_optimal_ = 2000;//us
+int fix_peak = 80000000; //bits/s
+int flow_peak = 80000000; // bits/s
+int beta_ = 100000; //bits/s
+int burst_size_ = 80000;// bits
+int deltaIncrease_ = 1000000; //bits/s
 struct timespec checkThInterval_ = {1,0};
 struct timespec checkThtime_ = {0};
 
@@ -135,21 +135,26 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	/*just for debug*/
 	int profile_result = in_profile(len);
 	printk(KERN_DEBUG "[mengy][recv]profile_result:%ld\n",profile_result);
-     
-    struct packet_dsshaper *my_packet;
-    INIT_LIST_HEAD(&my_packet->list);
-    my_packet->packet = p;   
+     	//if (list_empty(&shape_queue))
+                //printk(KERN_DEBUG "[mengy][recv]error shape_queue is empty");
+    	struct packet_dsshaper* my_packet;
+    	my_packet = kzalloc(sizeof(struct packet_dsshaper),GFP_KERNEL);
+    	INIT_LIST_HEAD(&my_packet->list);
+    	my_packet->packet = p;   
 	list_add_tail(&my_packet->list,&shape_queue);
+//if (list_empty(&shape_queue))
+                //printk(KERN_DEBUG "[mengy][recv]error shape_queue is empty");
 	//ath_tx_txqaddbuf(sc, txq, p, internal);
 	//list_del(my_packet);
-	
 	struct packet_msg *msg;
+	msg = kzalloc(sizeof(struct packet_msg),GFP_KERNEL);
         INIT_LIST_HEAD(&msg->list);//unsettled 
         msg->sc = sc;
         msg->txq = txq;
         msg->internal = internal;
         msg->len = len;
         list_add_tail(&msg->list,&shape_queue_msg);
+	
 	//ath_tx_txqaddbuf(sc, txq, p, internal);
 	//list_del(&my_packet->list);
 	//list_del(&msg->list);
@@ -159,21 +164,26 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	struct list_head *lh_p_test;
 	struct packet_msg *msg_test;
 	struct packet_dsshaper *packet_dsshaper_test;
-	lh_p_test = (&shape_queue)->next;
-        //lh_msg_test = (&shape_queue_msg)->next;
-	//msg_test = list_entry(lh_msg_test,struct packet_msg,list);
+	lh_p_test = shape_queue.next;
+	//if (list_empty(&shape_queue))
+	//	printk(KERN_DEBUG "[mengy][recv]error shape_queue is empty");
+        lh_msg_test = shape_queue_msg.next;
+	msg_test = list_entry(lh_msg_test,struct packet_msg,list);
+	//lh_p_test = 
 	packet_dsshaper_test = list_entry(lh_p_test,struct packet_dsshaper,list);
 	p_test = packet_dsshaper_test->packet;
-	/*
-	if(packet_dsshaper_test->packet == p)
-		printk(KERN_DEBUG "[mengy][recv]get the packet succesfully ");
-	else
-		printk(KERN_DEBUG "[mengy][recv]get the packet fail ");
-	*/
-	ath_tx_txqaddbuf(sc, txq,p, internal);
+	
+	//if(p_test == p)
+	//printk(KERN_DEBUG "[mengy][recv]get the packet %p , origin packet %p ",p_test,p);
+	//else
+		//printk(KERN_DEBUG "[mengy][recv]get the packet fail ");
+	
+	ath_tx_txqaddbuf(msg_test->sc, msg_test->txq,p_test, msg_test->internal);
 	//ath_tx_txqaddbuf(msg_test->sc, msg_test->txq,packet_dsshaper_test->packet, msg_test->internal);
-	list_del(&my_packet->list);
-	list_del(&msg->list);
+	list_del(&packet_dsshaper_test->list);
+	kfree(packet_dsshaper_test);
+	list_del(&msg_test->list);
+	kfree(msg_test);
 	return;
 	/*debug end*/
 	if (list_empty(&shape_queue)) {
@@ -338,10 +348,10 @@ void update_bucket_contents()
 	//u32 current_time = tv.tv_sec * 1000000 + tv.tv_nsec / 1000;
 	struct timespec tmp_sub = timespec_sub(current_time,dsshaper_my.last_time);
 
-	u64 tmp_number = 1000000; 
-	u64 added_bits = div64_u64( (u64) ((tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec / 1000) * flow_peak) ,tmp_number); 
-	tmp_number = 10;
-	dsshaper_my.curr_bucket_contents += div64_u64( (u64) (added_bits * 10  + 5) ,tmp_number) ;
+	//u64 tmp_number = 1000000; 
+	int added_bits = (int) tmp_sub.tv_sec * flow_peak;  // s * bits/s
+	//tmp_number = 10;
+	dsshaper_my.curr_bucket_contents += (int) (added_bits * 10  + 5) /10;
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
 		dsshaper_my.curr_bucket_contents=dsshaper_my.burst_size_ ; //unsettled how to update burst_size
 	
@@ -375,13 +385,13 @@ void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsi
 		
 		
 		
-		rate_avg_ = div64_u64((u64)pktsize_sum_ , (u64) ((delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec / 1000) * 1000000)); //bits/s
+		rate_avg_ = pktsize_sum_ /delay_sum_.tv_sec ; //bits/s
 		if (switchOn_)
 		{
 			if( delay_avg_ > delay_optimal_ )
 			{
 				update_bucket_contents();
-				flow_peak = div64_u64((u64)(delay_optimal_ * pri_peak_) ,(u64)delay_avg_); //unsettled
+				flow_peak = delay_optimal_ * pri_peak_ / delay_avg_; //unsettled
 				if (flow_peak  < beta_)
 					flow_peak = beta_;
 			}else{
@@ -472,6 +482,7 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
 
 
 
