@@ -38,7 +38,7 @@ struct timespec checkInterval_ = {0,5000000};
 struct timespec checktime_;
 int throughput_sum_ = 0;
 int alpha_ = 0; //%
-int rate_avg_ = 0; //bits/s
+int rate_avg_ = 0; //bits/us
 int delay_avg_ = 0;
 int switchOn_ = 1;
 int delay_optimal_ = 2000;//us
@@ -133,6 +133,7 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	dsshaper_my.received_packets++;
 	printk(KERN_DEBUG "[mengy][recv]sent the packet length:%ld\n",len);
 	/*just for debug*/
+	/*
 	int profile_result = in_profile(len);
 	printk(KERN_DEBUG "[mengy][recv]profile_result:%ld\n",profile_result);
      	//if (list_empty(&shape_queue))
@@ -184,7 +185,7 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	kfree(packet_dsshaper_test);
 	list_del(&msg_test->list);
 	kfree(msg_test);
-	return;
+	return;*/
 	/*debug end*/
 	if (list_empty(&shape_queue)) {
 //          There are no packets being shapped. Tests profile.
@@ -217,10 +218,16 @@ bool shape_packet(struct list_head *packet,struct ath_softc *sc, struct ath_txq 
 			return false;
         } 
         //shape_queue.enque(p);
-        list_add_tail(packet,&shape_queue);
+        struct packet_dsshaper* my_packet;
+    	my_packet = kzalloc(sizeof(struct packet_dsshaper),GFP_KERNEL);
+    	INIT_LIST_HEAD(&my_packet->list);
+    	my_packet->packet = packet;   
+		list_add_tail(&my_packet->list,&shape_queue);
+        //list_add_tail(packet,&shape_queue);
         
 
         struct packet_msg *msg;
+		msg = kzalloc(sizeof(struct packet_msg),GFP_KERNEL);
         INIT_LIST_HEAD(&msg->list);//unsettled 
         msg->sc = sc;
         msg->txq = txq;
@@ -255,22 +262,18 @@ void schedule_packet(struct list_head *p,int len)
 
 void resume()
 {
-	struct list_head *p;
-	//p = (&shape_queue)->next;
-	struct list_head *lh;
-	//lh = (&shape_queue_msg)->next;
-	struct packet_msg *msg;
-	//msg = list_entry(lh,struct packet_msg,list);
-	
+
+	struct packet_msg *msg_resume;
+	struct packet_dsshaper *packet_dsshaper_resume;
+	struct list_head *lh_msg_resume;
+	struct list_head *lh_p_resume;
 	if (!list_empty(&shape_queue)){
-			//p = shape_queue.deque();
-	//	struct list_head *p;
-        p = (&shape_queue)->next;
-        //struct list_head *lh;
-        lh = (&shape_queue_msg)->next;
-       // struct packet_msg *msg;
-        msg = list_entry(lh,struct packet_msg,list);
-		printk(KERN_DEBUG "[mengy][resume]resume the packet length:%ld\n",msg->len);
+
+        lh_p_resume = shape_queue.next;
+        lh_msg_resume = shape_queue_msg.next;
+        msg_resume = list_entry(lh_msg_resume,struct packet_msg,list);
+		packet_dsshaper_resume = list_entry(lh_p_resume,struct packet_dsshaper,list);
+		printk(KERN_DEBUG "[mengy][resume]resume the packet length:%ld\n",msg_resume->len);
 
 	}else{
 		printk(KERN_DEBUG "[mengy][Error     ][the queue is empty!]\n");
@@ -280,18 +283,20 @@ void resume()
 	//struct hdr_cmn *hdr = hdr_cmn::access(p);
 	//printf("[changhua pei][TC-resume ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
 	
-	if (in_profile(msg->len)) {
+	if (in_profile(msg_resume->len)) {
             dsshaper_my.sent_packets++;
-            printk(KERN_DEBUG "[mengy][resume]resume and sent the packet length:%ld\n",msg->len);
-            ath_tx_txqaddbuf(msg->sc, msg->txq, p, msg->internal);
-            list_del(p);
-			list_del(lh);
+            printk(KERN_DEBUG "[mengy][resume]resume and sent the packet length:%ld\n",msg_resume->len);
+            ath_tx_txqaddbuf(msg_resume->sc, msg_resume->txq, packet_dsshaper_resume->packet, msg_resume->internal);
+            list_del(lh_p_resume);
+			list_del(lh_msg_resume);
+			kfree(msg_resume);
+			kfree(packet_dsshaper_resume);
             //target_->recv(p,(Handler*) NULL);  //unsettled why recv? 
 
 	} else {
 		//printf("[changhua pei][TC-resume0][%d->%d][id=%d][puid_=%d][schedule until the packet is sent out!]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_, p->uid_);
-        printk(KERN_DEBUG "[mengy][resume]resume and schedule the packet length:%ld\n",msg->len);
-        schedule_packet(p,msg->len);
+        printk(KERN_DEBUG "[mengy][resume]resume and schedule the packet length:%ld\n",msg_resume->len);
+        schedule_packet(packet_dsshaper_resume->packet,msg_resume->len);
 
 		return;
 	} 
@@ -349,7 +354,7 @@ void update_bucket_contents()
 	struct timespec tmp_sub = timespec_sub(current_time,dsshaper_my.last_time);
 
 	//u64 tmp_number = 1000000; 
-	int added_bits = (int) tmp_sub.tv_sec * flow_peak;  // s * bits/s
+	int added_bits = (tmp_sub.tv_sec * 1000000 + tmp_sub.tv_nsec /1000) * ( flow_peak / 1000000);  // s * bits/s
 	//tmp_number = 10;
 	dsshaper_my.curr_bucket_contents += (int) (added_bits * 10  + 5) /10;
 	if (dsshaper_my.curr_bucket_contents > dsshaper_my.burst_size_)
@@ -385,7 +390,7 @@ void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsi
 		
 		
 		
-		rate_avg_ = pktsize_sum_ /delay_sum_.tv_sec ; //bits/s
+		rate_avg_ = pktsize_sum_ / (delay_sum_.tv_sec * 1000000 + delay_sum_.tv_nsec /1000) ; //bits/us
 		if (switchOn_)
 		{
 			if( delay_avg_ > delay_optimal_ )
@@ -397,8 +402,8 @@ void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsi
 			}else{
 				update_bucket_contents();
 				flow_peak =  pri_peak_ + deltaIncrease_;
-				if (flow_peak  > rate_avg_ )
-					flow_peak = rate_avg_ ;
+				if (flow_peak  > rate_avg_ * 1000000 )
+					flow_peak = rate_avg_ * 1000000 ;
 			}
 		}else{
 			flow_peak = fix_peak; //fixed rate 
@@ -482,6 +487,7 @@ int DSShaper::command(int argc, const char* const*argv)
 {
 	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
 }*/
+
 
 
 
