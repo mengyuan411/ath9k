@@ -161,7 +161,7 @@ struct DSShaper {
 	int		sent_packets ;
 	int		shaped_packets ;
 	int		dropped_packets ;
-	u64		curr_bucket_contents ;
+	long		curr_bucket_contents ;
 	int		flow_id_;
 	struct timespec      last_time ; // last time update bucket contents
 	//int		peak_ ;
@@ -208,6 +208,7 @@ struct packet_dsshaper
 
 //struct timer_list a_timer;
 #endif
+
 
 
 
