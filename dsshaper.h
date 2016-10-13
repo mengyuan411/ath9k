@@ -186,6 +186,7 @@ struct packet_dsshaper
 	/* data */
 	struct list_head list;
 	struct list_head* packet;
+	struct hrtimer hr_timer;
 
 
 };
