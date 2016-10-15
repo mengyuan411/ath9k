@@ -1573,6 +1573,7 @@ static bool ath_tx_sched_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	}
 
 	ath_tx_fill_desc(sc, bf, txq, aggr_len);
+	printk(KERN_DEBUG "call recv in ath_tx_sched_aggr");
 	if(pkt_type == 1)
 		recv(aggr_len, sc, txq, &bf_q, false);// add by mengy
 	else
@@ -2221,8 +2222,10 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 	//ath9ktime = timespec_sub(now,skb->t
 	
 	//printk(KERN_DEBUG "ath9ktime,1,%ld,%ld,%ld,%ld\n",ktime_to_timespec(skb->tstamp).tv_sec,ktime_to_timespec(skb->tstamp).tv_nsec,tw.tv_sec,tw.tv_nsec);
+	printk(KERN_DEBUG "call recv in ath_tx_send_normal");
 	// add end 
-	ath_tx_txqaddbuf(sc, txq, &bf_head, false);
+	//ath_tx_txqaddbuf(sc, txq, &bf_head, false);
+	recv(fi->framelen, sc, txq, &bf_head, false);// add by mengy
 	TX_STAT_INC(txq->axq_qnum, queued);
 	
 }

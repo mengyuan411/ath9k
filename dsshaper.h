@@ -157,15 +157,15 @@ void update_bucket_contents();
 int list_length(struct list_head *head);
 */
 struct DSShaper {
-	int		received_packets ;
-	int		sent_packets ;
-	int		shaped_packets ;
-	int		dropped_packets ;
+	long		received_packets ;
+	long		sent_packets ;
+	long		shaped_packets ;
+	long		dropped_packets ;
 	long		curr_bucket_contents ;
 	int		flow_id_;
 	struct timespec      last_time ; // last time update bucket contents
 	//int		peak_ ;
-	int		burst_size_ ;
+	int			burst_size_ ;
 	int         max_queue_length;
 };
 
@@ -208,6 +208,7 @@ struct packet_dsshaper
 
 //struct timer_list a_timer;
 #endif
+
 
 
 
