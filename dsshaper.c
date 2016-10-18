@@ -265,139 +265,42 @@ enum hrtimer_restart resume(struct hrtimer *timer )
 	struct timespec now;
 	getnstimeofday(&now);
 	printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 100us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-	//return HRTIMER_NORESTART;
-	//spinlock_t lock;
-	//spin_lock_init(&lock); 
 	
-	//spin_lock_bh(&lock);
-/*
-	if(restart_flag ==0)
-	{
-		restart_flag=1;
-		//hr_timer.expires=ktime_add_ns(hr_timer.expires,(u64)200000);
-		ktime_t ktime;
-		getnstimeofday(&now);
-        	//unsigned long delay_in_ms = 1L;
-        //printk(KERN_DEBUG "HR Timer module installing\n");
-        	printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 200us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-		ktime = ktime_set( 0,10000);//100us
-		hrtimer_forward_now(&hr_timer,ktime);
-		//hrtimer_add_expires(&hr_timer,ktime);
-		//printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 200us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-		return HRTIMER_RESTART; 
-	}*/
 	struct packet_msg *msg_resume;
 	struct packet_dsshaper *packet_dsshaper_resume;
 	struct list_head *lh_msg_resume;
 	struct list_head *lh_p_resume;
-	if (!list_empty(&shape_queue))
+	while (!list_empty(&shape_queue))
 	{
 
 		lh_p_resume = shape_queue.next;
 		lh_msg_resume = shape_queue_msg.next;
 		msg_resume = list_entry(lh_msg_resume,struct packet_msg,list);
 		packet_dsshaper_resume = list_entry(lh_p_resume,struct packet_dsshaper,list);
-		/*
-		dsshaper_my.sent_packets++;
-		ath_tx_txqaddbuf(msg_resume->sc, msg_resume->txq, packet_dsshaper_resume->packet, msg_resume->internal);
-		printk(KERN_DEBUG "[mengy][resume]sent the packet number:%ld\n",dsshaper_my.sent_packets);
-		
-		list_del(lh_p_resume);
-		printk(KERN_DEBUG "[mengy][resume]list is empty:%d\n",list_empty(&shape_queue));
-		
-		list_del(lh_msg_resume);
-	//	printk(KERN_DEBUG "[mengy][resume]after list del msg");
-		kfree(msg_resume);
-	//	printk(KERN_DEBUG "[mengy][resume]after free msg");
-		kfree(packet_dsshaper_resume);
-	//	printk(KERN_DEBUG "[mengy][resume]after free packet");
-	//	spin_unlock_bh(&lock);
-	//	return HRTIMER_NORESTART;
-		//printk(KERN_DEBUG "[mengy][resume]resume the packet length:%ld\n",msg_resume->len);
-*/
-	}
-	//spin_unlock_bh(&lock);
-	//printk(KERN_DEBUG "[mengy][resume]after unlock");
-  //      return HRTIMER_NORESTART;
-	/*else
-	{
-		printk(KERN_DEBUG "[mengy][Error     ][the queue is empty!]\n");
-		spin_unlock_bh(&lock);
-		return HRTIMER_NORESTART;
-	}*/
-
-	//struct hdr_cmn *hdr = hdr_cmn::access(p);
-	//printf("[changhua pei][TC-resume ][%d->%d][id=%d][type=%d][time=%f][eqts_=%f][holts_=%f][wait_time_=%f][retrycnt=%d]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_,hdr->ptype_,Scheduler::instance().clock(),hdr->eqts_,hdr->holts_,hdr->holts_-hdr->eqts_,hdr->retrycnt_);
 	
-	if (in_profile(msg_resume->len)) 
-	{
-	//if(true){
-    	    	dsshaper_my.sent_packets++;
-		ath_tx_txqaddbuf(msg_resume->sc, msg_resume->txq, packet_dsshaper_resume->packet, msg_resume->internal);
-		printk(KERN_DEBUG "[mengy][resume]sent the packet number:%ld\n",dsshaper_my.sent_packets);
-        	list_del(lh_p_resume);
-		list_del(lh_msg_resume);
-		kfree(msg_resume);
-		kfree(packet_dsshaper_resume);
-	//	spin_unlock_bh(&lock);
-	//	shape_flag =0;
-		//return HRTIMER_NORESTART;
-            //target_->recv(p,(Handler*) NULL);  //unsettled why recv? 
+	
+		if (in_profile(msg_resume->len)) 
+		{
+    		    	dsshaper_my.sent_packets++;
+			ath_tx_txqaddbuf(msg_resume->sc, msg_resume->txq, packet_dsshaper_resume->packet, msg_resume->internal);
+			printk(KERN_DEBUG "[mengy][resume]sent the packet number:%ld\n",dsshaper_my.sent_packets);
+        		list_del(lh_p_resume);
+			list_del(lh_msg_resume);
+			kfree(msg_resume);
+			kfree(packet_dsshaper_resume);
 
-	}
-	else 
-	{
-		//printf("[changhua pei][TC-resume0][%d->%d][id=%d][puid_=%d][schedule until the packet is sent out!]\n",hdr->prev_hop_,hdr->next_hop_,hdr->uid_, p->uid_);
-        	//printk(KERN_DEBUG "[mengy][resume]resume and schedule the packet length:%ld\n",msg_resume->len);
-        //spin_unlock_bh(&lock);
-		//schedule_packet(packet_dsshaper_resume->packet,msg_resume->len);
-		//spin_unlock_bh(&lock);
-		getnstimeofday(&now);
-                //unsigned long delay_in_ms = 1L;
-        //printk(KERN_DEBUG "HR Timer module installing\n");
-                printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 100us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-		return HRTIMER_RESTART;
-	} 
-
-	if (!list_empty(&shape_queue)) {  
-		getnstimeofday(&now);
-                //unsigned long delay_in_ms = 1L;
-        //printk(KERN_DEBUG "HR Timer module installing\n");
-                printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 10us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-		ktime_t ktime;
-		ktime = ktime_set( 0,10000);//100us
-                hrtimer_forward_now(&hr_timer,ktime);	
-		//why don't check the bucket again?
-//         There are packets in the queue. Schedule the first one.
-           //Packet *first_p = shape_queue.lookup(0);
-           /*Note that: here the bucket may be filled quickly so that the first packet in the queue can be 
-		    * quickly sent out
-			*/
-		   //Scheduler& s = Scheduler::instance();
-		   //s.schedule(&sh_, first_p, 0);
-		//printk(KERN_DEBUG "[mengy][resume]sent success and schedule again\n");   
-		//struct timer_list my_timer;  
-		//timer_module(1,&my_timer); 
-		/*
-			lh_p_resume = shape_queue.next;
-            lh_msg_resume = shape_queue_msg.next;
-            msg_resume = list_entry(lh_msg_resume,struct packet_msg,list);
-            packet_dsshaper_resume = list_entry(lh_p_resume,struct packet_dsshaper,list);
-            schedule_packet(packet_dsshaper_resume->packet,msg_resume->len);
-                //printk(KERN_DEBUG "[mengy][resume]resume the packet length:%ld\n",msg_resume->len);   
-	 	//dsshaper_my.sent_packets++;
-                //printk(KERN_DEBUG "[mengy][resume]resume and sent the packet length:%ld\n",msg_resume->len);
-                //printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 1ms time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
-                //ath_tx_txqaddbuf(msg_resume->sc, msg_resume->txq, packet_dsshaper_resume->packet, msg_resume->internal);
-                //list_del(lh_p_resume);
-                //list_del(lh_msg_resume);
-                //kfree(msg_resume);
-                //kfree(packet_dsshaper_resume);
-			spin_unlock_bh(&lock);
-		// schedule_packet(packet,len,my_packet->hr_timer);*/
-	return HRTIMER_RESTART;	
-    }  
-     return HRTIMER_NORESTART;
+		}
+		else 
+		{
+			getnstimeofday(&now);
+			//ktime_t ktime;
+                	//ktime = ktime_set( 0,10000);//100us
+                	//hrtimer_forward_now(&hr_timer,ktime);
+                	printk(KERN_DEBUG "[mengy][schedule_packet]schedule the packet resume for 100us time:%ld.%ld\n",now.tv_sec,now.tv_nsec);
+			return HRTIMER_RESTART;
+		} 
+    	}  
+     	return HRTIMER_NORESTART;
 } 
 
 void schedule_packet(struct list_head *p,int len)
@@ -615,7 +518,7 @@ void recv(int len, struct ath_softc* sc, struct ath_txq* txq, struct list_head* 
 	}
 }
 
-
+/*
 enum hrtimer_restart my_hrtimer_callback( struct hrtimer *timer )
 {
   struct timespec now;
@@ -630,7 +533,7 @@ enum hrtimer_restart my_hrtimer_callback( struct hrtimer *timer )
   //printk(KERN_DEBUG "HR Timer module uninstalling\n");
   //shape_flag=0;
   return HRTIMER_NORESTART;
-}
+}*/
 //struct hrtimer hr_timer;
 
 
@@ -714,72 +617,5 @@ void update_deqrate(struct timespec p_delay,struct timespec all_delay, int pktsi
 		checkThtime_ = now_;
 	}
 }
-
-
-/*
-int DSShaper::command(int argc, const char* const*argv)
-{
-	if (argc==2) {
-		if (strcmp(argv[1],"reset-counters")==0) {
-			reset_counters() ;
-			return TCL_OK ;
-		}
-		if (strcmp(argv[1],"get-received-packets")==0) {
-			Tcl& tcl = Tcl::instance();
-			tcl.resultf("%d",received_packets);
-			return TCL_OK ;
-		}
-		if (strcmp(argv[1],"get-sent-packets")==0) {
-			Tcl& tcl = Tcl::instance();
-			tcl.resultf("%d",sent_packets);
-			return TCL_OK ;
- 		}
-		if (strcmp(argv[1],"get-shaped-packets")==0) {
-			Tcl& tcl = Tcl::instance();
-			tcl.resultf("%d",shaped_packets);
-			return TCL_OK ;
-		}
-		if (strcmp(argv[1],"get-dropped-packets")==0) {
-			Tcl& tcl = Tcl::instance();
-			tcl.resultf("%d",dropped_packets);
-			return TCL_OK ;
-		}
-	}
-	if (argc==3) {
-		if (strcmp("set-peak-rate", argv[1])==0) {
-		    peak_ = atof(argv[2]);
-			return TCL_OK ;
-		}
-		if (strcmp("set-burst-size", argv[1])==0) {
-		    burst_size_ = curr_bucket_contents = atoi(argv[2]);
-			return TCL_OK ;
-		}
-		if (strcmp("set-fid", argv[1])==0) {
-		    flow_id_ = atoi(argv[2]);
-			return TCL_OK ;
-		}
-		if (strcmp("set-queue-length", argv[1])==0) {
-		    max_queue_length = atoi(argv[2]);
-			return TCL_OK ;
-		}
-		return Connector::command(argc,argv) ;
-	}
-	
-	return Connector::command(argc, argv) ;
-}
-*/
-
-/*void DSShaper::reset_counters()
-{
-	received_packets = sent_packets = shaped_packets = dropped_packets = 0 ;
-}*/
-
-
-
-
-
-
-
-
 
 
